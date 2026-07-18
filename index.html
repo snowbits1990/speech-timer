@@ -1,0 +1,2698 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>演讲稿计时器 · Speech Timer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* 中性 - 暖调克制 */
+    --bg: #FAFAF8;
+    --panel: #FFFFFF;
+    --ink: #1C1917;
+    --ink-2: #44403C;
+    --muted: #78716C;
+    --muted-2: #A8A29E;
+    --line: #E7E5E0;
+    --line-2: #D6D3CC;
+    --hover: #F5F5F4;
+
+    /* 强调 - 深青 */
+    --accent: #0E7490;
+    --accent-strong: #155E75;
+    --accent-soft: #ECFEFF;
+    --accent-line: #67E8F9;
+
+    /* 状态 */
+    --good: #15803D;
+    --good-soft: #DCFCE7;
+    --warn: #B45309;
+    --warn-soft: #FEF3C7;
+    --bad: #B91C1C;
+    --bad-soft: #FEE2E2;
+
+    /* 高亮 */
+    --mark-bg: #FEF08A;
+    --mark-fg: #854D0E;
+    --cue-bg: #ECFEFF;
+    --cue-fg: #155E75;
+  }
+
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .stat-num {
+    font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === 统一按钮（3 种） === */
+  .btn, .btn-primary, .btn-danger, .btn-ghost {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    border: 1px solid var(--line-2);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--hover); border-color: var(--ink-2); }
+  .btn:active { transform: translateY(0.5px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+
+  .btn-danger { color: var(--bad); border-color: #FCA5A5; }
+  .btn-danger:hover { background: var(--bad-soft); border-color: var(--bad); }
+
+  .btn-ghost {
+    background: transparent; border-color: transparent; color: var(--ink-2);
+    padding: 6px 10px;
+  }
+  .btn-ghost:hover { background: var(--hover); border-color: transparent; color: var(--ink); }
+
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+  .btn-link {
+    background: none; border: none; padding: 0; color: var(--accent);
+    cursor: pointer; font-size: inherit; font-family: inherit; text-decoration: underline;
+  }
+  .btn-link:hover { color: var(--accent-strong); }
+  .btn-link.danger { color: var(--bad); }
+  .btn-link.danger:hover { color: #991B1B; }
+
+  /* === 编辑器 === */
+  .editor-stack {
+    position: relative; flex: 1; min-height: 0; display: flex;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    line-height: 1.85;
+    letter-spacing: 0;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  .editor-stack .pad {
+    flex: 1; padding: 4px 2px; overflow: hidden; position: relative;
+  }
+  /* textarea 和 highlight 层必须像素级一致：所有字体属性显式展开（不用 `font:` 简写，避免某些浏览器不一致继承） */
+  .editor-stack textarea,
+  .editor-stack .highlight {
+    position: absolute; inset: 4px 2px;
+    margin: 0; padding: 0;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.85;
+    letter-spacing: 0;
+    word-spacing: 0;
+    font-feature-settings: 'cv11', 'ss01';
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    border: none; outline: none; box-sizing: border-box;
+    tab-size: 4;
+  }
+  .editor-stack textarea {
+    background: transparent; color: transparent;
+    caret-color: var(--ink); resize: none; overflow: auto;
+    z-index: 2;
+  }
+  .editor-stack .highlight {
+    z-index: 1; pointer-events: none; overflow: auto; color: var(--ink);
+    background: transparent;
+  }
+  /* mark/cue 必须继承 line-height，不能用 inline-block（会撑开 line-box 导致对齐偏移），
+     不能用 box-decoration-break（Chrome 渲染 quirk）。跨多行装饰通过 JavaScript 拆分保证。 */
+  .editor-stack .highlight mark {
+    background: var(--mark-bg);
+    color: var(--mark-fg);
+    font-weight: 500;
+    font-style: normal;
+    text-decoration: none;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    line-height: inherit;
+    vertical-align: baseline;
+  }
+  .editor-stack .highlight .cue {
+    background: var(--cue-bg);
+    color: var(--cue-fg);
+    font-weight: 500;
+    /* 0 padding + 0 margin 是必须的：任何水平 padding 都会让 span 的 inline box 向右偏，
+       导致 highlight 层的文字位置 ≠ textarea 文字位置 → 选中时出现重影。
+       左侧装饰竖线用 box-shadow（不占 layout）模拟。
+       文字不用 italic —— 斜体字形和 textarea 的正体字形视觉上不一致，会让人误判为"重影"。
+       emoji 用 transform: scale(1.15) 放大（不影响 layout，line-box 高度不变），
+       加上单色文字和更高的字重，让 cue 行整体看起来像一张设计好的"互动卡片"。 */
+    padding: 0;
+    margin: 0;
+    box-shadow: inset 3px 0 0 var(--accent-line);
+    text-decoration: none;
+    line-height: inherit;
+    vertical-align: baseline;
+  }
+  /* emoji 在 cue 行里放大视觉但不参与 layout。transform 不影响 line-box 高度，
+     所以仍然不会和 textarea 文字错位。transform-origin: left baseline 让 emoji 底部
+     贴文字基线，视觉上垂直对齐。 */
+  .editor-stack .highlight .cue .cue-emoji {
+    display: inline-block;
+    transform: scale(1.08);
+    transform-origin: left baseline;
+    margin-right: 4px;
+    will-change: transform;
+  }
+
+  /* cue 行被选中时加深底色 + 让 box-shadow 左侧竖线变成蓝色 selection 同一色，
+     这样浏览器 selection 高亮的左缘（偏左几个像素的视觉问题）会和 box-shadow
+     撞色融为一体，看上去 selection 是从左边竖线开始的"加深区域"，不再有偏移感。
+     cue-bg = #ECFEFF (未选), #A5F3FC (选中深一档，更深以便"吃掉"蓝色 selection) */
+  .editor-stack .highlight .cue.cue-selected {
+    background: #A5F3FC;
+    box-shadow: inset 3px 0 0 #0EA5E9;
+  }
+
+  /* 互动按钮 toolbar */
+  .cue-toolbar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+  }
+  .cue-toolbar .toolbar-label {
+    font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-right: 4px;
+  }
+  .cue-toolbar + .editor-stack {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  .editor-shell {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  /* === 进度条 === */
+  .progress-track {
+    height: 8px; background: var(--line); border-radius: 999px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent);
+    transition: width .25s ease;
+  }
+  .progress-fill.over { background: var(--bad); }
+  .progress-fill.warn { background: var(--warn); }
+
+  /* === 时长 hero === */
+  .hero-card { padding: 24px; }
+  .time-display {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 56px; font-weight: 700; line-height: 1.05;
+    color: var(--ink);
+    letter-spacing: -0.03em;
+    margin: 4px 0 14px;
+  }
+  .time-display .unit {
+    font-size: 16px; font-weight: 500; color: var(--muted);
+    margin-left: 4px; letter-spacing: 0;
+  }
+
+  /* === 语速 chip === */
+  .speed-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .speed-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line-2);
+    background: var(--panel);
+    color: var(--ink-2);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .speed-chip[aria-pressed="true"] {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .speed-chip:hover:not([aria-pressed="true"]) {
+    border-color: var(--accent); color: var(--accent);
+  }
+
+  /* === 目标时长输入 === */
+  .target-row {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .target-row input {
+    width: 60px; padding: 6px 8px;
+    border: 1px solid var(--line-2); border-radius: 6px;
+    background: var(--panel); color: var(--ink);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px; text-align: center;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .12s ease;
+  }
+  .target-row input:focus { outline: none; border-color: var(--accent); }
+  .target-row .colon { color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  /* === 段落列表 === */
+  .para-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; font-size: 13px;
+    cursor: pointer; transition: background .12s ease;
+  }
+  .para-row:hover { background: var(--hover); }
+  .para-row .pidx {
+    flex: 0 0 22px; height: 22px; border-radius: 6px;
+    background: var(--line); color: var(--ink-2); font-size: 11px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .para-row .ptext { flex: 1; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .para-row .pmeta {
+    flex: 0 0 auto; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+  .para-row.warn { background: var(--warn-soft); }
+  .para-row.warn .pidx { background: #FCD34D; color: var(--warn); }
+  .para-row.over { background: var(--bad-soft); }
+  .para-row.over .pidx { background: #FCA5A5; color: var(--bad); }
+  .para-row.over .pmeta { color: var(--bad); font-weight: 600; }
+  .para-row.cue { background: var(--cue-bg); border-left: 3px solid var(--accent-line); }
+  .para-row.cue .pidx { background: var(--accent-line); color: var(--accent-strong); }
+  .para-row.cue .pmeta { color: var(--accent-strong); }
+  .para-row.cue .ptext { color: var(--accent-strong); font-style: italic; }
+
+  /* === 口癖 === */
+  .tic-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-2); background: var(--panel);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tic-chip.zero { opacity: 0.4; }
+  .tic-chip .count {
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 4px;
+    background: var(--mark-bg); color: var(--mark-fg);
+    font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tic-chip.zero .count { background: var(--line); color: var(--muted); }
+
+  /* === 时长拖动 tooltip === */
+  .dur-tooltip {
+    position: fixed; pointer-events: none;
+    background: var(--ink); color: var(--panel);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 14px;
+    z-index: 250;
+    transform: translate(-50%, calc(-100% - 12px));
+    display: none; align-items: center; gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.28);
+    white-space: nowrap;
+  }
+  .dur-tooltip.open { display: inline-flex; }
+  .dur-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%; left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--ink);
+  }
+  .dur-tooltip .dur-arrow {
+    font-size: 16px; font-weight: 700;
+    color: var(--accent-line);
+    min-width: 16px; text-align: center;
+    line-height: 1;
+  }
+  .dur-tooltip .dur-num {
+    font-weight: 700; font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    min-width: 64px; text-align: center;
+  }
+  .dur-tooltip .dur-hint {
+    font-size: 10px; color: var(--muted-2);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding-left: 8px; border-left: 1px solid #3F3F46;
+  }
+  .editor-shell.dragging-cue,
+  .editor-shell.dragging-cue textarea { cursor: ns-resize !important; }
+
+  /* === 语速测试 modal === */
+  .speed-test-overlay {
+    position: fixed; inset: 0; background: rgba(15,15,20,0.55);
+    z-index: 150; display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    padding: 20px;
+  }
+  .speed-test-overlay.open { display: flex; }
+  .speed-test-card {
+    background: var(--panel); border-radius: 12px; width: 100%; max-width: 720px;
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px; border-bottom: 1px solid var(--line);
+  }
+  .modal-head h3 {
+    font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .modal-close {
+    background: none; border: none; font-size: 22px; cursor: pointer;
+    color: var(--muted); padding: 4px 12px; border-radius: 6px; line-height: 1;
+  }
+  .modal-close:hover { background: var(--hover); color: var(--ink); }
+  .modal-body { padding: 24px; }
+  .modal-body .hint { color: var(--muted); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+  .test-text {
+    font-size: 17px; line-height: 1.85; padding: 20px;
+    background: var(--bg); border-radius: 10px; border: 1px solid var(--line);
+    max-height: 260px; overflow-y: auto; margin-bottom: 20px;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .test-clock-row {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 16px 20px; background: #18181B; border-radius: 10px;
+  }
+  .test-clock {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 42px; font-weight: 700; color: #FAFAF8;
+    font-variant-numeric: tabular-nums; flex: 1; min-width: 140px;
+    line-height: 1;
+  }
+  .test-clock.running { color: var(--accent-line); }
+  .test-actions { display: flex; gap: 8px; }
+  .test-actions .btn { background: #27272A; color: #FAFAF8; border-color: #3F3F46; }
+  .test-actions .btn:hover { background: #3F3F46; border-color: #52525B; }
+  .test-actions .btn-primary { background: var(--accent); border-color: var(--accent); }
+  .test-actions .btn-primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+  .test-result {
+    margin-top: 20px; padding: 20px;
+    background: var(--accent-soft); border-radius: 10px;
+    border: 1px solid var(--accent-line);
+  }
+  .test-result .result-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  }
+  .test-result .result-grid > div {
+    text-align: center; padding: 14px 8px; background: var(--panel);
+    border-radius: 8px;
+  }
+  .test-result .kv-value { font-size: 18px; }
+  @media (max-width: 600px) {
+    .test-result .result-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* === Toast === */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+    background: #1C1917; color: #FAFAF8; padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.18); z-index: 200;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+    font-weight: 500;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* === 演讲者视图（深色模式） === */
+  .presenter {
+    position: fixed; inset: 0; background: #0A0A0B; color: #FAFAF8;
+    z-index: 100; display: none; flex-direction: column;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .presenter.open { display: flex; }
+  .presenter .top-bar {
+    padding: 18px 32px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #27272A; gap: 16px;
+  }
+  .presenter .cur-label {
+    color: #A1A1AA; font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .presenter .cur-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px; font-weight: 600;
+    font-variant-numeric: tabular-nums; color: #FAFAF8;
+  }
+  .presenter .cur-time .sep { color: #52525B; margin: 0 4px; font-size: 22px; }
+  .presenter .cur-time .total { color: #71717A; font-size: 18px; font-weight: 400; }
+  .presenter .cur-time.behind { color: #FBBF24; }
+  .presenter .cur-time.over { color: #F87171; }
+  .presenter .body {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 32px 64px; overflow: hidden;
+  }
+  .presenter .stage {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+    gap: 24px;
+  }
+  .presenter .timers {
+    display: flex; align-items: center; justify-content: center;
+    gap: 28px; flex-wrap: wrap;
+  }
+  .presenter .timer-block {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 22px; border-radius: 12px;
+    background: #18181B; border: 1px solid #27272A;
+  }
+  .presenter .timer-block .timer-lbl {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #71717A;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .presenter .timer-block .timer-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 64px; font-weight: 700;
+    font-variant-numeric: tabular-nums; color: #FAFAF8;
+    line-height: 1.1;
+  }
+  .presenter .timer-block .timer-num.warn { color: #FBBF24; }
+  .presenter .timer-block .timer-num.danger {
+    color: #F87171;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  .presenter .cur-para {
+    font-size: clamp(28px, 4vw, 56px); line-height: 1.55;
+    text-align: center; max-width: 1100px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .presenter .cur-para.empty { color: #52525B; font-size: 24px; }
+  .presenter .cur-para.cue-mode {
+    font-size: clamp(64px, 10vw, 160px); line-height: 1.2;
+  }
+  .presenter .cur-para .cue-emoji { display: block; margin-bottom: 16px; }
+  .presenter .cur-para .cue-label {
+    font-size: clamp(18px, 2.4vw, 32px); color: #A1A1AA; font-weight: 400;
+    margin-top: 8px;
+  }
+  .presenter .next-strip {
+    border-top: 1px solid #27272A; padding-top: 18px;
+    color: #A1A1AA; font-size: 18px;
+    margin-top: 12px;
+  }
+  .presenter .next-strip .nlbl {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #71717A; margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .presenter .next-strip .ntext {
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 5em; overflow: hidden; opacity: 0.85;
+  }
+  .presenter .next-strip .ntext.cue-preview { color: #67E8F9; font-style: italic; }
+  .presenter .prog {
+    height: 6px; background: #27272A; margin: 18px 64px 0; border-radius: 999px; overflow: hidden;
+  }
+  .presenter .prog > div {
+    height: 100%; background: var(--accent);
+    transition: width .25s ease;
+  }
+  .presenter .prog > div.over { background: #EF4444; }
+  .presenter .ctrl {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 32px; border-top: 1px solid #27272A;
+    color: #A1A1AA; font-size: 12px;
+  }
+  .presenter .ctrl .kbd {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    background: #27272A; color: #E4E4E7; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    margin: 0 2px;
+  }
+  .presenter .ctrl .left, .presenter .ctrl .right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .presenter .auto-toggle {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+  }
+  .presenter .auto-toggle input { accent-color: var(--accent); }
+
+  /* === 通用 === */
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  .kv-label {
+    color: var(--muted); font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-weight: 500;
+  }
+  .kv-value {
+    font-family: 'JetBrains Mono', ui-monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 18px; font-weight: 600;
+  }
+  .sub-time { font-size: 13px; color: var(--muted); }
+  .delta-good { color: var(--good); font-weight: 500; }
+  .delta-warn { color: var(--warn); font-weight: 500; }
+  .delta-bad  { color: var(--bad); font-weight: 500; }
+
+  .scroll-thin::-webkit-scrollbar { width: 6px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 3px; }
+  .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* === 引导 + 帮助 modal（共用 overlay） === */
+  .onboard-overlay {
+    position: fixed; inset: 0; background: rgba(15,15,20,0.62);
+    z-index: 200; display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    padding: 20px;
+  }
+  .onboard-overlay.open { display: flex; }
+  .onboard-card {
+    background: var(--panel); border-radius: 14px; width: 100%; max-width: 560px;
+    box-shadow: 0 25px 60px rgba(0,0,0,.28);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .onboard-stage { padding: 40px 36px 28px; }
+  .onboard-emoji { font-size: 52px; line-height: 1; margin-bottom: 18px; }
+  .onboard-title {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+    margin-bottom: 12px; color: var(--ink);
+  }
+  .onboard-desc {
+    color: var(--ink-2); font-size: 15px; line-height: 1.7;
+  }
+  .onboard-desc code {
+    background: var(--bg); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 4px; font-size: 13px;
+    font-family: 'JetBrains Mono', monospace; color: var(--ink);
+  }
+  .onboard-foot {
+    padding: 16px 24px;
+    border-top: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg);
+  }
+  .onboard-dots { display: flex; gap: 6px; align-items: center; }
+  .onboard-dots .dot {
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--line-2);
+    transition: background .2s ease, width .2s ease;
+  }
+  .onboard-dots .dot.active { background: var(--accent); width: 18px; }
+  .onboard-actions { display: flex; gap: 6px; align-items: center; }
+
+  /* 帮助 modal - 内容更密 */
+  .help-card { max-width: 720px; max-height: 88vh; overflow-y: auto; }
+  .help-section { padding: 22px 28px; border-bottom: 1px solid var(--line); }
+  .help-section:last-child { border-bottom: none; }
+  .help-section h4 {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .help-row {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .help-row:last-child { border-bottom: none; }
+  .help-row .hr-label { flex: 0 0 110px; color: var(--ink); font-weight: 500; font-size: 14px; }
+  .help-row .hr-desc  { flex: 1; color: var(--ink-2); font-size: 14px; line-height: 1.55; }
+  .kbd {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    background: var(--line); color: var(--ink);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    margin: 0 1px;
+  }
+  .help-row code {
+    background: var(--bg); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink);
+  }
+  .help-tip {
+    margin-top: 10px; padding: 12px 14px;
+    background: var(--accent-soft); border-radius: 8px;
+    border-left: 3px solid var(--accent-line);
+    font-size: 13px; color: var(--ink-2); line-height: 1.6;
+  }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-6xl mx-auto px-5 py-8" id="main-app">
+
+  <!-- 标题 -->
+  <header class="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div>
+      <h1 id="i18n-title" class="text-2xl font-bold tracking-tight" style="letter-spacing:-0.02em;">演讲稿计时器</h1>
+      <p id="i18n-subtitle" class="text-sm text-zinc-500 mt-1" style="color:var(--muted);">字数统计 · 时长预估 · 口癖检测 · 段落分布 · 互动标记 · 演讲者视图 · 大纲导出</p>
+    </div>
+    <div class="flex gap-2 items-center">
+      <button id="btn-lang" class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);min-width:64px;justify-content:center;" title="切换语言 / Switch language">
+        <span id="i18n-lang-label">中</span>
+        <span style="opacity:0.4;margin:0 2px;">|</span>
+        <span id="i18n-lang-toggle" style="opacity:0.55;">EN</span>
+      </button>
+      <button id="btn-help" class="btn btn-ghost btn-sm" aria-label="使用说明" title="使用说明">?</button>
+      <button id="btn-export-outline" class="btn"><span id="i18n-btn-export">导出大纲</span></button>
+      <button id="btn-present" class="btn-primary"><span id="i18n-btn-present">▶ 开始演讲</span></button>
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+    <!-- 左：编辑器 -->
+    <section class="lg:col-span-3 flex flex-col gap-3" style="min-height: 580px;">
+
+      <!-- 互动按钮 toolbar -->
+      <div class="cue-toolbar">
+        <span id="i18n-cue-toolbar" class="toolbar-label">插入互动</span>
+        <button class="btn btn-sm" data-cue="🎯">🎯 <span data-i18n-cue="🎯">互动</span></button>
+        <button class="btn btn-sm" data-cue="📦">📦 <span data-i18n-cue="📦">道具</span></button>
+        <button class="btn btn-sm" data-cue="🎬">🎬 <span data-i18n-cue="🎬">视频</span></button>
+        <button class="btn btn-sm" data-cue="⏸️">⏸️ <span data-i18n-cue="⏸️">停顿</span></button>
+        <button class="btn btn-sm" data-cue="❓">❓ <span data-i18n-cue="❓">提问</span></button>
+        <button class="btn btn-sm" data-cue="💡">💡 <span data-i18n-cue="💡">引述</span></button>
+        <span style="flex:1"></span>
+        <button id="btn-sample" class="btn btn-sm"><span id="i18n-btn-sample">载入示例</span></button>
+        <button id="btn-clear" class="btn btn-sm btn-danger"><span id="i18n-btn-clear">清空</span></button>
+      </div>
+
+      <!-- 编辑器外壳 -->
+      <div class="editor-shell flex-1 flex flex-col" style="min-height: 460px;">
+        <div class="editor-stack" style="min-height: 460px;">
+          <div class="pad">
+            <div class="highlight scroll-thin" id="hl"></div>
+            <textarea id="editor" placeholder="Paste or write your speech here…" spellcheck="false"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 状态栏 + 恢复栏 -->
+      <div class="flex items-center justify-between flex-wrap gap-2 text-xs" style="color:var(--muted);">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span id="i18n-autosave-status">Ready</span>
+          <span id="restore-bar" class="hidden">· <span id="i18n-restore-prefix">上次有</span> <b id="restore-count">0</b> <span id="i18n-restore-unit">字</span> <span id="i18n-restore-suffix">未读</span> <button id="btn-restore" class="btn-link">恢复</button> <button id="btn-discard" class="btn-link danger">丢弃</button></span>
+        </div>
+        <span id="i18n-footer-status">中英文混排 · 段落空行分隔 · 行首 emoji 视为互动指令</span>
+      </div>
+    </section>
+
+    <!-- 右：统计 -->
+    <aside class="lg:col-span-2 flex flex-col gap-4">
+
+      <!-- 时长 hero 卡片 -->
+      <div class="card hero-card">
+        <div class="flex items-baseline justify-between mb-2">
+          <span id="i18n-hero-label" class="kv-label">预估时长</span>
+          <button id="btn-speed-test" class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);">
+            ⏱ <span id="i18n-btn-speed-test">语速测试</span>
+          </button>
+        </div>
+        <div class="time-display stat-num"><span id="time-main">0:00</span></div>
+        <div class="speed-row" id="speed-row">
+          <!-- 速度档位由 JS 根据语言动态生成 -->
+        </div>
+        <div class="target-row">
+          <span id="i18n-target-label" class="kv-label">目标</span>
+          <input id="target-min" type="number" min="0" max="999" placeholder="分" data-ph="targetMinPh" />
+          <span class="colon">:</span>
+          <input id="target-sec" type="number" min="0" max="59" placeholder="秒" data-ph="targetSecPh" />
+          <button id="btn-clear-target" class="btn-ghost btn-sm" style="margin-left:auto;"><span id="i18n-target-clear">清除</span></button>
+        </div>
+        <div class="progress-track" style="margin-top:14px;">
+          <div id="progress-fill" class="progress-fill" style="width:0%"></div>
+        </div>
+        <div id="progress-text" class="text-xs" style="color:var(--muted);margin-top:6px;">设定目标后显示进度</div>
+      </div>
+
+      <!-- 段落分布 -->
+      <div class="card p-5">
+        <div class="flex items-baseline justify-between mb-3">
+          <span id="i18n-para-label" class="kv-label">段落分布</span>
+          <span id="para-summary" class="sub-time">—</span>
+        </div>
+        <div id="para-list" class="space-y-1 max-h-72 overflow-y-auto scroll-thin"></div>
+      </div>
+
+      <!-- 口癖检测 -->
+      <div class="card p-5">
+        <div class="flex items-baseline justify-between mb-3">
+          <span id="i18n-tic-label" class="kv-label">口癖检测</span>
+          <button id="btn-toggle-tic" class="btn-ghost btn-sm"><span id="i18n-tic-edit">编辑词表</span></button>
+        </div>
+        <div id="tic-counts" class="flex flex-wrap gap-1.5 mb-2"></div>
+        <div id="tic-edit" class="hidden" style="margin-top:8px;">
+          <textarea id="tic-input" placeholder="每行一个口癖词，或用逗号/空格分隔" data-ph="ticInputPh" rows="3"
+                    class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none"
+                    style="border-color:var(--line-2);background:var(--panel);resize:none;"></textarea>
+          <div id="i18n-tic-edit-hint" class="text-xs" style="color:var(--muted);margin-top:4px;">修改后失焦自动保存</div>
+        </div>
+        <div id="tic-total" class="text-xs" style="color:var(--muted);margin-top:4px;"></div>
+      </div>
+
+      <!-- 字数明细 -->
+      <details class="card p-5">
+        <summary class="flex items-center justify-between font-medium text-sm">
+          <span id="i18n-chars-label">字数明细</span>
+          <span id="i18n-chars-expand" style="color:var(--muted-2);font-size:12px;">展开 ▾</span>
+        </summary>
+        <div class="mt-3 grid grid-cols-2 gap-y-3 gap-x-4">
+          <div>
+            <div id="i18n-chars-cjk" class="kv-label">汉字</div>
+            <div class="kv-value" id="c-cjk">0</div>
+          </div>
+          <div>
+            <div id="i18n-chars-en" class="kv-label">英文单词</div>
+            <div class="kv-value" id="c-en">0</div>
+          </div>
+          <div>
+            <div id="i18n-chars-all" class="kv-label">字符数（含空白）</div>
+            <div class="kv-value" id="c-all">0</div>
+          </div>
+          <div>
+            <div id="i18n-chars-para" class="kv-label">段落数</div>
+            <div class="kv-value" id="c-para">0</div>
+          </div>
+          <div>
+            <div id="i18n-chars-sent" class="kv-label">句子数</div>
+            <div class="kv-value" id="c-sent">0</div>
+          </div>
+          <div>
+            <div id="i18n-chars-weighted" class="kv-label">加权字数</div>
+            <div class="kv-value" id="c-weighted">0</div>
+          </div>
+        </div>
+      </details>
+
+    </aside>
+  </div>
+
+  <footer id="i18n-footer" class="mt-10 text-center text-xs" style="color:var(--muted-2);">
+    所有计算在浏览器里完成 · 草稿存在 localStorage · 关闭页面不会上传任何内容
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">已复制</div>
+
+<!-- 时长拖动 tooltip -->
+<div class="dur-tooltip" id="dur-tooltip">
+  <span class="dur-arrow" id="dur-arrow">·</span>
+  <span class="dur-num" id="dur-num">0 秒</span>
+  <span class="dur-hint" id="i18n-dur-hint">拖动 ↑↓</span>
+</div>
+
+<!-- ===================== 语速测试 modal ===================== -->
+<div class="speed-test-overlay" id="speed-test-overlay">
+  <div class="speed-test-card">
+    <div class="modal-head">
+      <h3 id="i18n-speed-test-title">⏱ 语速测试</h3>
+      <button class="modal-close" id="btn-close-test" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="i18n-speed-test-hint" class="hint">点「开始」后大声朗读下面这段文字（建议用平时讲话的速度），读完后点「完成」。系统会算出你的实测语速并推荐档位。</p>
+      <div class="test-text" id="test-text"></div>
+      <div class="test-clock-row">
+        <div class="test-clock" id="test-clock">0.0</div>
+        <div class="test-actions">
+          <button class="btn btn-primary" id="btn-test-start"><span id="i18n-speed-test-start">开始</span></button>
+          <button class="btn" id="btn-test-stop" disabled><span id="i18n-speed-test-stop">完成</span></button>
+          <button class="btn" id="btn-test-reset"><span id="i18n-speed-test-reset">重读</span></button>
+        </div>
+      </div>
+      <div class="test-result hidden" id="test-result">
+        <div class="result-grid">
+          <div>
+            <div id="i18n-result-chars" class="kv-label">加权字数</div>
+            <div class="kv-value" id="result-chars">—</div>
+          </div>
+          <div>
+            <div id="i18n-result-time" class="kv-label">用时</div>
+            <div class="kv-value" id="result-time">—</div>
+          </div>
+          <div>
+            <div id="i18n-result-wpm" class="kv-label">实测语速</div>
+            <div class="kv-value" id="result-wpm">—</div>
+          </div>
+          <div>
+            <div id="i18n-result-reco" class="kv-label">推荐档位</div>
+            <div class="kv-value" id="result-reco">—</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-apply-speed" style="margin-top:16px;width:100%;justify-content:center;">✓ <span id="i18n-speed-test-apply">应用此档位</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 首次访问引导 ===================== -->
+<div class="onboard-overlay" id="onboard-overlay">
+  <div class="onboard-card">
+    <div class="onboard-stage" id="onboard-stage"></div>
+    <div class="onboard-foot">
+      <div class="onboard-dots" id="onboard-dots"></div>
+      <div class="onboard-actions">
+        <button class="btn btn-ghost btn-sm" id="btn-onboard-skip">跳过</button>
+        <button class="btn btn-sm" id="btn-onboard-prev">上一步</button>
+        <button class="btn btn-primary btn-sm" id="btn-onboard-next">下一步 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 使用说明 modal ===================== -->
+<div class="onboard-overlay" id="help-overlay">
+  <div class="onboard-card help-card" id="help-card">
+    <!-- JS 渲染 -->
+  </div>
+</div>
+
+<!-- ===================== 演讲者视图 ===================== -->
+<div class="presenter" id="presenter">
+  <div class="top-bar">
+    <div>
+      <div class="cur-label" id="p-stage">—</div>
+      <div class="cur-time" id="p-clock">
+        <span id="p-elapsed">0:00</span>
+        <span class="sep">/</span>
+        <span class="total" id="p-total">0:00</span>
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="cur-label" id="p-elapsed-label">预估已用</div>
+      <div class="cur-time" id="p-expected" style="font-size:20px;color:#A1A1AA;">0:00</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="stage">
+      <div class="timers">
+        <div class="timer-block">
+          <span class="timer-lbl" id="p-seg-remain-label">本段剩余</span>
+          <span class="timer-num" id="p-seg-remain">0:00</span>
+        </div>
+      </div>
+      <div class="cur-para" id="p-cur">—</div>
+    </div>
+    <div class="next-strip" id="p-sent-next">
+      <span class="nlbl" id="p-sent-next-label">下一句</span>
+      <span class="ntext">—</span>
+    </div>
+    <div class="next-strip">
+      <div class="nlbl" id="p-next-label">下一段</div>
+      <div class="ntext" id="p-next">—</div>
+    </div>
+  </div>
+
+  <div class="prog"><div id="p-prog-fill" style="width:0%"></div></div>
+
+  <div class="ctrl">
+    <div class="left">
+      <label class="auto-toggle">
+        <input type="checkbox" id="p-auto" checked>
+        <span id="p-auto-label">按预估时长自动推进</span>
+      </label>
+    </div>
+    <div class="right" id="p-shortcuts">
+      <span><span class="kbd">Space</span> <span data-ps="pause">暂停</span></span>
+      <span><span class="kbd">↓/J</span> <span data-ps="nextSent">下一句</span></span>
+      <span><span class="kbd">↑/K</span> <span data-ps="prevSent">上一句</span></span>
+      <span><span class="kbd">→/N</span> <span data-ps="nextPara">下一段</span></span>
+      <span><span class="kbd">←/P</span> <span data-ps="prevPara">上一段</span></span>
+      <span><span class="kbd">R</span> <span data-ps="reset">重置</span></span>
+      <span><span class="kbd">F</span> <span data-ps="fullscreen">全屏</span></span>
+      <span><span class="kbd">Esc</span> <span data-ps="exit">退出</span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ============= DOM =============
+  const $ = (id) => document.getElementById(id);
+  const editor       = $('editor');
+  const hl           = $('hl');
+  const cCjk         = $('c-cjk');
+  const cEn          = $('c-en');
+  const cAll         = $('c-all');
+  const cPara        = $('c-para');
+  const cSent        = $('c-sent');
+  const cWeighted    = $('c-weighted');
+  const timeMain     = $('time-main');
+  const progressFill = $('progress-fill');
+  const progressText = $('progress-text');
+  const targetMin    = $('target-min');
+  const targetSec    = $('target-sec');
+  const autoSave     = $('i18n-autosave-status');
+  const paraList     = $('para-list');
+  const paraSummary  = $('para-summary');
+  const ticCounts    = $('tic-counts');
+  const ticTotal     = $('tic-total');
+  const ticInput     = $('tic-input');
+  const toastEl      = $('toast');
+
+  // ============= 常量 =============
+  const STORAGE_KEY  = 'speech-timer:content:v1';
+  const SETTINGS_KEY = 'speech-timer:settings:v1';
+  const TIC_KEY      = 'speech-timer:tics:v1';
+  const LANG_KEY     = 'speech-timer:lang:v1';
+  const DEFAULT_TICS = ['嗯','啊','呃','哦','那个','这个','然后','就是说','其实','对吧','然后呢','我觉得吧','反正','基本上','就是说吧'];
+  const DEFAULT_TICS_EN = ['um','uh','er','ah','like','you know','so','basically','I mean','kind of','sort of','right?','I guess','well','okay'];
+
+  const CUE_LINE_RE = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
+  const CUE_DEFAULTS = {
+    '🎯': 30, '📦': 10, '🎬': 30, '⏸️': 5, '❓': 20, '💡': 10,
+  };
+
+  // ============= 多语言 =============
+  // 语速档位：中文按汉字/分钟（每分钟说几个字），英文按 words per minute。
+  // 来源：普通话日常讲话约 200-250 字/分钟；英文 TED 演讲通常 130-150 wpm。
+  // 档位固定为 4 档，按"慢/正常/快/飞快"分级，跨语言各自一套默认值。
+  const SPEED_PRESETS = {
+    zh: [
+      { speed: 150, label: '慢' }, { speed: 200, label: '正常' }, { speed: 250, label: '快' }, { speed: 300, label: '飞快' },
+    ],
+    en: [
+      { speed: 100, label: 'Slow' }, { speed: 130, label: 'Normal' }, { speed: 170, label: 'Fast' }, { speed: 220, label: 'Rapid' },
+    ],
+  };
+
+  const I18N = {
+    zh: {
+      title: '演讲稿计时器',
+      subtitle: '字数统计 · 时长预估 · 口癖检测 · 段落分布 · 互动标记 · 演讲者视图 · 大纲导出',
+      btnHelpTitle: '使用说明',
+      btnExport: '导出大纲',
+      btnPresent: '▶ 开始演讲',
+      cueToolbar: '插入互动',
+      cueLabels: { '🎯':'互动', '📦':'道具', '🎬':'视频', '⏸️':'停顿', '❓':'提问', '💡':'引述' },
+      btnSample: '载入示例',
+      btnClear: '清空',
+      editorPlaceholder: '把你的演讲稿粘贴或写在这里…\n\n• 每输入一个字，下面的统计会实时更新\n• 嗯/啊/那个/然后 等口癖会被自动高亮\n• 点上方「🎯 互动」等按钮插入互动指令（不算字数）\n• 草稿自动保存在浏览器',
+      autosaveReady: '已就绪',
+      autosaveSaving: '保存中…',
+      autosaveSaved: '已自动保存',
+      autosaveFail: '保存失败（可能是存储已满）',
+      autosaveCleared: '已清空',
+      restoreBar: '上次有 {n} 字未读',
+      restore: '恢复',
+      discard: '丢弃',
+      footerStatus: '中英文混排 · 段落空行分隔 · 行首 emoji 视为互动指令',
+      heroLabel: '预估时长',
+      btnSpeedTest: '⏱ 语速测试',
+      speedChipLabel: (n, name) => `${name} · ${n}`,
+      speedTestHint: '点「开始」后大声朗读下面这段文字（建议用平时讲话的速度），读完后点「完成」。系统会算出你的实测语速并推荐档位。',
+      speedTestTitle: '⏱ 语速测试',
+      speedTestText: `各位评委、亲爱的同学们，今天我想和大家分享一个话题：在不确定的时代，如何构建自己的确定性。\n\n过去一年，我常常被一个问题困扰：变化太快了。今天学到的东西，明天可能就过时了。但慢慢地，我找到了一个答案——那就是刻意练习基本功。\n\n我们这一代人，最缺的不是新概念，而是把最基本的动作重复一万次的能力。\n\nLet's embrace the challenge and grow together.`,
+      speedTestStart: '开始',
+      speedTestStop: '完成',
+      speedTestReset: '重读',
+      speedTestResultChars: '加权字数',
+      speedTestResultTime: '用时',
+      speedTestResultWpm: '实测语速',
+      speedTestResultReco: '推荐档位',
+      speedTestApply: '✓ 应用此档位',
+      targetLabel: '目标',
+      targetMinPh: '分',
+      targetSecPh: '秒',
+      targetClear: '清除',
+      progressPlaceholder: '设定目标后显示进度',
+      paraLabel: '段落分布',
+      ticLabel: '口癖检测',
+      ticEdit: '编辑词表',
+      ticInputPh: '每行一个口癖词，或用逗号/空格分隔',
+      ticEditHint: '修改后失焦自动保存',
+      ticClean: '✓ 干净 — 没有发现口癖',
+      ticTotal: (n) => `共发现 ${n} 次口癖，建议改稿时替换或删减`,
+      charsLabel: '字数明细',
+      charsExpand: '展开 ▾',
+      charsCjk: '汉字',
+      charsEn: '英文单词',
+      charsAll: '字符数（含空白）',
+      charsPara: '段落数',
+      charsSent: '句子数',
+      charsWeighted: '加权字数',
+      langLabel: '中',
+      langToggleTo: 'EN',
+      toastCopied: '已复制',
+      toastExported: '大纲已下载',
+      toastSpeedApplied: (s) => `已应用 ${s} 字 / 分钟`,
+      toastAdjusted: (n) => `已调整为 ${n} 秒`,
+      confirmClear: '确认清空当前演讲稿？',
+      paraEmpty: '还没有段落',
+      paraSummary: (n, sec) => `${n} 段 · ${sec}`,
+      paraMetaCue: (sec) => `互动 · ${sec}`,
+      paraMetaText: (w, sec) => `${w}字 · ${sec}`,
+      diffOver: (sec, pct) => `已超出 ${sec}（${pct}%）`,
+      diffUnder: (sec, pct) => `还差 ${sec}（${pct}%）`,
+      diffGood: '✓ 刚好达标',
+      mdOutlineTitle: '演讲稿大纲',
+      mdGenerated: '生成时间',
+      mdTotal: '总时长',
+      mdTarget: '目标时长',
+      mdTargetNone: '未设定',
+      mdSpeed: (s, unit) => `语速：${s} ${unit}`,
+      mdTotalParas: (n, c) => `总段数：${n}（含 ${c} 个互动指令）`,
+      mdChars: (cjk, en, w) => `字数：汉字 ${cjk} · 英文 ${en} · 加权 ${w}`,
+      mdOutlineSection: '段落大纲',
+      mdCueSection: '互动指令清单',
+      mdCueItem: (sec) => `**[互动 · ${sec}]**`,
+      mdParaItem: (n, flag, w, sec) => `${n}. **第 ${n} 段**${flag} · ${w} 字 · ${sec}`,
+      mdEmpty: '_（无内容）_',
+      mdCueEmpty: '_（无互动指令）_',
+      mdFooter: '_由 演讲稿计时器 生成_',
+      mdSpeedUnit: '字 / 分钟',
+      mdFilename: () => `演讲稿大纲-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}-${String(new Date().getHours()).padStart(2,'0')}${String(new Date().getMinutes()).padStart(2,'0')}.md`,
+      speedUnit: '字/分钟',
+      // 测速推荐档位
+      recoTier: (wpm) => wpm < 150 ? '慢·150' : wpm < 220 ? '正常·200' : wpm < 280 ? '快·250' : '飞快·300',
+      speedCat: (wpm) => wpm < 150 ? '慢' : wpm < 220 ? '正常' : wpm < 280 ? '快' : '飞快',
+      speedCatReco: (cat, num) => `${cat} · ${num}`,
+      wpmUnit: '字 / 分钟',
+      // 测速结果展示
+      tFmtUnit: (s, m, sec) => `${m} 分 ${sec} 秒`,
+      // 引导/帮助
+      onboardTitle: '欢迎使用演讲稿计时器',
+      onboardDesc1: '这是一个帮你准备演讲稿的工具 — 自动算时长、检口癖、标记互动环节，上台时还能全屏提示节奏。',
+      onboardStep2Title: '① 粘贴或撰写演讲稿',
+      onboardStep2Desc: '把稿子粘进左边文本框就开始统计。空行分段；中间偶尔需要换行用单个 <code>Enter</code>。',
+      onboardStep3Title: '② 右侧自动算出时长',
+      onboardStep3Desc: '基于当前语速档位（默认正常 200 字/分钟）预估总时长。可以点 <code>⏱ 语速测试</code> 测一下自己的真实语速，系统会推荐档位。',
+      onboardStep4Title: '③ 插入互动环节',
+      onboardStep4Desc: '编辑器上方 <code>🎯 互动 / 📦 道具 / 🎬 视频</code> 等按钮会在光标处插入互动模板。<b>不计入演讲稿字数</b>，但占你真实的时间。',
+      onboardStep5Title: '④ 口癖自动高亮',
+      onboardStep5Desc: '编辑器里"嗯、啊、那个、然后"等口癖会被黄色高亮 + 计数。点 <code>编辑词表</code> 加你自己的口头禅。',
+      onboardStep6Title: '⑤ 准备好了就开始演讲',
+      onboardStep6Desc: '点右上 <code>▶ 开始演讲</code> 进入全屏视图，按 <code>Space</code> 暂停、<code>↓</code> 切句、<code>Esc</code> 退出。',
+      helpPurpose: '工具用途',
+      helpPurposeDesc: '演讲稿准备助手。粘贴或撰写演讲稿，自动统计字数、预估时长，标记口癖词，识别互动环节，并提供全屏演讲者视图帮助你掌控台上节奏。',
+      helpFlow: '基本流程',
+      helpFlow1Label: '① 写稿',
+      helpFlow1Desc: '把演讲稿粘贴到左边文本框。空行分段；行首 <code>🎯 📦 🎬 ⏸️ ❓ 💡</code> 视为互动指令，不算字数。',
+      helpFlow2Label: '② 看时长',
+      helpFlow2Desc: '右侧自动统计汉字、英文词、段落、句子数。预估时长按当前语速档位计算（慢 150 / 正常 200 / 快 250 / 飞快 300 字/分钟）。',
+      helpFlow3Label: '③ 加互动',
+      helpFlow3Desc: '编辑器上方 6 个按钮快速插入互动模板：<code>🎯 互动（30秒）：</code>。<b>时长数字可改</b>，影响总时长。',
+      helpFlow4Label: '④ 测语速',
+      helpFlow4Desc: '右上 <code>⏱ 语速测试</code> 用一段固定文本测你真实的讲话速度，自动推荐档位。',
+      helpFlow5Label: '⑤ 检口癖',
+      helpFlow5Desc: '编辑器里"嗯/啊/那个/然后"等口癖自动黄色高亮 + 计数。"编辑词表"加你自己的口头禅。',
+      helpFlow6Label: '⑥ 导大纲',
+      helpFlow6Desc: '右上 <code>导出大纲</code> 下载 Markdown 格式演讲稿大纲（含段首句、字数、时长、互动指令清单）。',
+      helpFlow7Label: '⑦ 演讲',
+      helpFlow7Desc: '右上 <code>▶ 开始演讲</code> 进入全屏演讲者视图。演讲时不用鼠标也能切段。',
+      helpShortcuts: '演讲者视图快捷键',
+      helpPause: '暂停/继续',
+      helpNextSent: '下一句',
+      helpNextSentDesc: '<span class="kbd">↓</span> / <span class="kbd">J</span> （自动跨段）',
+      helpPrevSent: '上一句',
+      helpPrevSentDesc: '<span class="kbd">↑</span> / <span class="kbd">K</span>',
+      helpNextPara: '下一段',
+      helpNextParaDesc: '<span class="kbd">→</span> / <span class="kbd">N</span> / <span class="kbd">PgDn</span>',
+      helpPrevPara: '上一段',
+      helpPrevParaDesc: '<span class="kbd">←</span> / <span class="kbd">P</span> / <span class="kbd">PgUp</span>',
+      helpReset: '重置计时',
+      helpResetDesc: '<span class="kbd">R</span>',
+      helpFullscreen: '全屏切换',
+      helpFullscreenDesc: '<span class="kbd">F</span>',
+      helpExit: '退出',
+      helpExitDesc: '<span class="kbd">Esc</span>',
+      helpAutoAdvanceTip: '自动按预估时长推进默认开启，可关闭"按预估时长自动推进"后用 ↑/↓/←/→ 完全手动控制。',
+      helpCueFormat: '互动指令格式',
+      helpCueFormatDesc: '行首是 emoji 即视为互动指令，整行不计入演讲稿字数。两种写法：',
+      helpCueExample: '🎯 互动（30秒）：走到台下与观众握手',
+      helpCueFormatHint: '括号内 <code>（30秒）</code> 是显式时长；不写则用默认（🎯30s / 📦10s / 🎬30s / ⏸️5s / ❓20s / 💡10s）。',
+      helpStorage: '数据保存在哪',
+      helpStorageDesc: '全部存在你的浏览器 <code>localStorage</code>，不上传任何服务器。草稿、语速、目标时长、口癖词表都会自动保存。',
+      helpStorageHint: '想从头开始？点编辑器上方 <code>清空</code> 即可。下次打开默认是空白的（不再自动恢复上次的草稿，但会提示"上次有 X 字未读"可手动恢复）。',
+      onboardSkip: '跳过',
+      onboardPrev: '上一步',
+      onboardNext: '下一步 →',
+      onboardStart: '开始使用 →',
+      presenterLabel: (i, n) => `第 ${i} 段 / 共 ${n} 段`,
+      presenterSentLabel: (i, n) => ` · 第 ${i} 句 / 共 ${n} 句`,
+      presenterCueLabel: ' · 互动',
+      presenterElapsed: '预估已用',
+      presenterSegRemain: '本段剩余',
+      presenterExpected: (sec) => `本段应于 ${sec} 结束`,
+      presenterAutoToggle: '按预估时长自动推进',
+      presenterPause: '暂停',
+      presenterNextSent: '下一句',
+      presenterPrevSent: '上一句',
+      presenterNextPara: '下一段',
+      presenterPrevPara: '上一段',
+      presenterReset: '重置',
+      presenterFullscreen: '全屏',
+      presenterExit: '退出',
+      presenterEmptySpeech: '当前没有内容，先去写点东西吧。',
+      nextLabel: '下一段',
+      nextSentLabel: (sec) => `下一句（${sec}）`,
+      lastPara: '— 已是最后一段 —',
+      emptyPara: '空稿',
+      emptySent: '（空句）',
+      sample: `各位评委、老师、同学们，大家好。
+
+🎯 互动（30秒）：开场前走到台前停留两秒，与前排观众眼神接触
+
+今天站在这里，我感到无比激动。我想和大家分享的主题是：在不确定的时代，如何构建自己的确定性。
+
+过去一年，我常常被一个问题困扰：变化太快了。今天学到的东西，明天可能就过时了。但慢慢地，我找到了一个答案——那就是"刻意练习基本功"。
+
+💡 引述（10秒）：「一万小时理论」—— 格拉德威尔《异类》
+
+我们这一代人，最不缺的就是新概念。但真正拉开差距的，是把最基本的动作重复一万次的能力。就像演讲这件事，没有人天生就会讲，但只要你愿意坐下来，一遍一遍地写稿、计时、对着镜子练习，半年之后，你会感谢今天开始的自己。
+
+🎬 视频（45秒）：播放产品 demo
+
+📦 道具（15秒）：举起话筒示意
+
+所以，我想用一句话结束今天的分享：不要追逐风口，去成为那个永远有准备的人。
+
+谢谢大家。`,
+      footerCopy: '所有计算在浏览器里完成 · 草稿存在 localStorage · 关闭页面不会上传任何内容',
+    },
+    en: {
+      title: 'Speech Timer',
+      subtitle: 'Word count · Duration estimate · Filler detection · Paragraph breakdown · Interaction markers · Presenter view · Outline export',
+      btnHelpTitle: 'Help',
+      btnExport: 'Export Outline',
+      btnPresent: '▶ Start Speech',
+      cueToolbar: 'Insert Interaction',
+      cueLabels: { '🎯':'Engage', '📦':'Prop', '🎬':'Video', '⏸️':'Pause', '❓':'Question', '💡':'Quote' },
+      btnSample: 'Load Sample',
+      btnClear: 'Clear',
+      editorPlaceholder: 'Paste or write your speech here…\n\n• Stats update as you type\n• Fillers like "um / uh / like / you know" auto-highlight\n• Use the buttons above to insert interaction markers (not counted)\n• Draft auto-saves in your browser',
+      autosaveReady: 'Ready',
+      autosaveSaving: 'Saving…',
+      autosaveSaved: 'Auto-saved',
+      autosaveFail: 'Save failed (storage may be full)',
+      autosaveCleared: 'Cleared',
+      restoreBar: 'Last draft has {n} words unread',
+      restore: 'Restore',
+      discard: 'Discard',
+      footerStatus: 'Mixed Chinese/English · Empty line = new paragraph · Line-leading emoji = interaction marker',
+      heroLabel: 'Estimated Duration',
+      btnSpeedTest: '⏱ Speed Test',
+      speedChipLabel: (n, name) => `${name} · ${n}`,
+      speedTestHint: 'Click Start and read the passage aloud at your normal pace, then click Done. We will compute your actual speed and recommend a preset.',
+      speedTestTitle: '⏱ Speed Test',
+      speedTestText: `Ladies and gentlemen, today I want to share a thought with you: in an era of uncertainty, how do we build our own certainty?\n\nOver the past year I have often been troubled by one question: change is too fast. What we learn today may be obsolete tomorrow. But slowly, I found an answer—deliberate practice of the fundamentals.\n\nOur generation does not lack new concepts. What truly separates us is the ability to repeat the most basic action ten thousand times.\n\n让我们拥抱挑战，共同成长。`,
+      speedTestStart: 'Start',
+      speedTestStop: 'Done',
+      speedTestReset: 'Reset',
+      speedTestResultChars: 'Weighted chars',
+      speedTestResultTime: 'Time',
+      speedTestResultWpm: 'Measured speed',
+      speedTestResultReco: 'Recommended',
+      speedTestApply: '✓ Apply this preset',
+      targetLabel: 'Target',
+      targetMinPh: 'min',
+      targetSecPh: 'sec',
+      targetClear: 'Clear',
+      progressPlaceholder: 'Set a target to see progress',
+      paraLabel: 'Paragraphs',
+      ticLabel: 'Fillers',
+      ticEdit: 'Edit list',
+      ticInputPh: 'One filler per line, or separate by comma/space',
+      ticEditHint: 'Auto-saves when you click away',
+      ticClean: '✓ Clean — no fillers found',
+      ticTotal: (n) => `Found ${n} filler${n===1?'':'s'}. Consider replacing when revising.`,
+      charsLabel: 'Char breakdown',
+      charsExpand: 'Expand ▾',
+      charsCjk: 'CJK chars',
+      charsEn: 'English words',
+      charsAll: 'Characters (incl. spaces)',
+      charsPara: 'Paragraphs',
+      charsSent: 'Sentences',
+      charsWeighted: 'Weighted',
+      langLabel: 'EN',
+      langToggleTo: '中',
+      toastCopied: 'Copied',
+      toastExported: 'Outline downloaded',
+      toastSpeedApplied: (s, unit) => `Applied ${s} ${unit}`,
+      toastAdjusted: (n) => `Adjusted to ${n} seconds`,
+      confirmClear: 'Clear current speech?',
+      paraEmpty: 'No paragraphs yet',
+      paraSummary: (n, sec) => `${n} paragraphs · ${sec}`,
+      paraMetaCue: (sec) => `Interaction · ${sec}`,
+      paraMetaText: (w, sec) => `${w} chars · ${sec}`,
+      diffOver: (sec, pct) => `Over by ${sec} (${pct}%)`,
+      diffUnder: (sec, pct) => `${sec} short (${pct}%)`,
+      diffGood: '✓ Right on target',
+      mdOutlineTitle: 'Speech Outline',
+      mdGenerated: 'Generated',
+      mdTotal: 'Total duration',
+      mdTarget: 'Target duration',
+      mdTargetNone: 'Not set',
+      mdSpeed: (s, unit) => `Speed: ${s} ${unit}`,
+      mdTotalParas: (n, c) => `Paragraphs: ${n} (incl. ${c} interaction${c===1?'':'s'})`,
+      mdChars: (cjk, en, w) => `Chars: CJK ${cjk} · EN ${en} · Weighted ${w}`,
+      mdOutlineSection: 'Paragraph Outline',
+      mdCueSection: 'Interaction List',
+      mdCueItem: (sec) => `**[Interaction · ${sec}]**`,
+      mdParaItem: (n, flag, w, sec) => `${n}. **Para ${n}**${flag} · ${w} chars · ${sec}`,
+      mdEmpty: '_(empty)_',
+      mdCueEmpty: '_(no interactions)_',
+      mdFooter: '_Generated by Speech Timer_',
+      mdSpeedUnit: 'wpm',
+      mdFilename: () => `speech-outline-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}-${String(new Date().getHours()).padStart(2,'0')}${String(new Date().getMinutes()).padStart(2,'0')}.md`,
+      speedUnit: 'wpm',
+      recoTier: (wpm) => wpm < 115 ? 'Slow·100' : wpm < 150 ? 'Normal·130' : wpm < 195 ? 'Fast·170' : 'Rapid·220',
+      speedCat: (wpm) => wpm < 115 ? 'Slow' : wpm < 150 ? 'Normal' : wpm < 195 ? 'Fast' : 'Rapid',
+      speedCatReco: (cat, num) => `${cat} · ${num}`,
+      wpmUnit: 'wpm',
+      tFmtUnit: (s, m, sec) => `${m}m ${sec}s`,
+      onboardTitle: 'Welcome to Speech Timer',
+      onboardDesc1: 'A speech-prep helper — auto-computes duration, flags filler words, marks interaction moments, and provides a fullscreen presenter view to keep you on pace on stage.',
+      onboardStep2Title: '① Paste or write your speech',
+      onboardStep2Desc: 'Paste into the editor on the left and stats start flowing. Empty lines separate paragraphs; single <code>Enter</code> for a soft line break.',
+      onboardStep3Title: '② Auto-computed duration',
+      onboardStep3Desc: 'Right-side panel computes a total from the current speed preset (default Normal · 130 wpm). Tap <code>⏱ Speed Test</code> to measure your real pace and get a recommended preset.',
+      onboardStep4Title: '③ Insert interaction markers',
+      onboardStep4Desc: 'The buttons above the editor (<code>🎯 Engage / 📦 Prop / 🎬 Video</code>) insert interaction templates at the cursor. <b>Not counted toward your word count</b>, but consumes your real stage time.',
+      onboardStep5Title: '④ Fillers auto-highlight',
+      onboardStep5Desc: 'Words like "um / uh / like / you know" are highlighted in yellow and counted. Click <code>Edit list</code> to add your own verbal tics.',
+      onboardStep6Title: '⑤ Ready? Hit Start',
+      onboardStep6Desc: 'Top-right <code>▶ Start Speech</code> opens the fullscreen presenter view. <code>Space</code> to pause, <code>↓</code> to advance a sentence, <code>Esc</code> to exit.',
+      helpPurpose: 'What this does',
+      helpPurposeDesc: 'A speech-writing helper. Paste or write a speech, auto-count words, estimate duration, flag filler words, mark interactions, and provide a fullscreen presenter view to keep you on pace on stage.',
+      helpFlow: 'Basic workflow',
+      helpFlow1Label: '① Write',
+      helpFlow1Desc: 'Paste the speech on the left. Empty line = new paragraph. Lines starting with <code>🎯 📦 🎬 ⏸️ ❓ 💡</code> are interaction markers and not counted.',
+      helpFlow2Label: '② Estimate',
+      helpFlow2Desc: 'The right panel auto-counts CJK characters, English words, paragraphs, sentences. Duration uses the current speed preset (Slow 100 / Normal 130 / Fast 170 / Rapid 220 wpm).',
+      helpFlow3Label: '③ Insert',
+      helpFlow3Desc: 'Six quick-insert buttons: <code>🎯 Engage (30s):</code>. <b>The duration number is editable</b> and feeds into the total.',
+      helpFlow4Label: '④ Measure speed',
+      helpFlow4Desc: 'Top-right <code>⏱ Speed Test</code> reads a fixed passage, computes your real pace, and recommends a preset.',
+      helpFlow5Label: '⑤ Fillers',
+      helpFlow5Desc: '"um/uh/like/you know" get yellow highlight + count. Use <code>Edit list</code> to add your own verbal tics.',
+      helpFlow6Label: '⑥ Export',
+      helpFlow6Desc: 'Top-right <code>Export Outline</code> downloads a Markdown outline (paragraph openers, char counts, durations, interaction list).',
+      helpFlow7Label: '⑦ Present',
+      helpFlow7Desc: 'Top-right <code>▶ Start Speech</code> enters the fullscreen presenter view. Keyboard-only operation.',
+      helpShortcuts: 'Presenter shortcuts',
+      helpPause: 'Pause / resume',
+      helpNextSent: 'Next sentence',
+      helpNextSentDesc: '<span class="kbd">↓</span> / <span class="kbd">J</span> (auto-crosses paragraphs)',
+      helpPrevSent: 'Prev sentence',
+      helpPrevSentDesc: '<span class="kbd">↑</span> / <span class="kbd">K</span>',
+      helpNextPara: 'Next paragraph',
+      helpNextParaDesc: '<span class="kbd">→</span> / <span class="kbd">N</span> / <span class="kbd">PgDn</span>',
+      helpPrevPara: 'Prev paragraph',
+      helpPrevParaDesc: '<span class="kbd">←</span> / <span class="kbd">P</span> / <span class="kbd">PgUp</span>',
+      helpReset: 'Reset clock',
+      helpResetDesc: '<span class="kbd">R</span>',
+      helpFullscreen: 'Fullscreen',
+      helpFullscreenDesc: '<span class="kbd">F</span>',
+      helpExit: 'Exit',
+      helpExitDesc: '<span class="kbd">Esc</span>',
+      helpAutoAdvanceTip: 'Auto-advance on the estimated duration is on by default. Uncheck "Auto-advance by estimated duration" for full manual control with ↑/↓/←/→.',
+      helpCueFormat: 'Interaction marker format',
+      helpCueFormatDesc: 'A line whose first non-space character is an emoji is treated as an interaction marker and excluded from word count. Two forms:',
+      helpCueExample: '🎯 Engage (30s): walk to the front row and shake hands',
+      helpCueFormatHint: 'The <code>(30s)</code> bracket is the explicit duration; without it, the emoji default is used (🎯30s / 📦10s / 🎬30s / ⏸️5s / ❓20s / 💡10s).',
+      helpStorage: 'Where data lives',
+      helpStorageDesc: 'All in your browser\'s <code>localStorage</code>, nothing uploaded. Drafts, speed, target duration, and filler list are all auto-saved.',
+      helpStorageHint: 'Start fresh? Click <code>Clear</code> above the editor. Next visit starts empty by default (with a "last draft has X chars" prompt to restore if you want).',
+      onboardSkip: 'Skip',
+      onboardPrev: 'Previous',
+      onboardNext: 'Next →',
+      onboardStart: 'Get started →',
+      presenterLabel: (i, n) => `Para ${i} / ${n}`,
+      presenterSentLabel: (i, n) => ` · Sent ${i} / ${n}`,
+      presenterCueLabel: ' · Interaction',
+      presenterElapsed: 'Elapsed',
+      presenterSegRemain: 'Segment left',
+      presenterExpected: (sec) => `This segment ends at ${sec}`,
+      presenterAutoToggle: 'Auto-advance by estimate',
+      presenterPause: 'Pause',
+      presenterNextSent: 'Next sent',
+      presenterPrevSent: 'Prev sent',
+      presenterNextPara: 'Next para',
+      presenterPrevPara: 'Prev para',
+      presenterReset: 'Reset',
+      presenterFullscreen: 'Fullscreen',
+      presenterExit: 'Exit',
+      presenterEmptySpeech: 'No content yet — write something first.',
+      nextLabel: 'Next paragraph',
+      nextSentLabel: (sec) => `Next sentence (${sec})`,
+      lastPara: '— End of speech —',
+      emptyPara: 'Empty',
+      emptySent: '(empty sentence)',
+      sample: `Ladies and gentlemen, judges, fellow students, good afternoon.
+
+🎯 Interaction (30s): walk to the front, pause for two seconds, make eye contact with the front row
+
+Standing here today, I am truly honored. The topic I want to share with you is: in an era of uncertainty, how do we build our own certainty?
+
+For the past year, I have often been troubled by one question: change is too fast. What we learn today may be obsolete tomorrow. But slowly, I found an answer — deliberate practice of the fundamentals.
+
+💡 Quote (10s): "The 10,000-hour rule" — Malcolm Gladwell, Outliers
+
+Our generation does not lack new concepts. What truly separates us is the ability to repeat the most basic action ten thousand times. Take public speaking: nobody is born knowing how to do it, but if you are willing to sit down and write, time yourself, and practice in front of a mirror, half a year later you will thank yourself for starting today.
+
+🎬 Video (45s): play product demo
+
+📦 Prop (15s): hold up the microphone
+
+So I want to end with one sentence: don't chase the风口 — be the person who is always prepared.
+
+Thank you.`,
+      footerCopy: 'All computation runs in your browser · Drafts stored in localStorage · Nothing uploaded',
+    },
+  };
+
+  // ============= 状态 =============
+  let lang = 'en';  // 当前语言：'zh' 或 'en'。默认英文（用户要求），可用 localStorage 或 header 切换器覆盖
+  let speed = 200;
+  let saveTimer = null;
+  let tics = [...DEFAULT_TICS];
+
+  function t(key) { return I18N[lang][key]; }
+
+  // ============= 计数 =============
+  const CJK_RE  = /[㐀-鿿豈-﫿]/g;
+  const EN_RE   = /[A-Za-z]+(?:[''\-][A-Za-z]+)*/g;
+  const SENT_RE = /[^。！？.!?\n]+[。！？.!?]+/g;
+
+  function isCueLine(line) {
+    return CUE_LINE_RE.test(line.trimStart());
+  }
+  function stripCueLines(text) {
+    return text.split('\n').filter(l => !isCueLine(l)).join('\n');
+  }
+  function count(text) {
+    const cleaned = stripCueLines(text);
+    const cjk = (cleaned.match(CJK_RE) || []).length;
+    const en  = (cleaned.match(EN_RE) || []).length;
+    const all = cleaned.length;
+    const para = splitParagraphs(text).length;
+    const sent = (cleaned.match(SENT_RE) || []).length;
+    const weighted = Math.round(cjk + en * 1.5);
+    return { cjk, en, all, para, sent, weighted };
+  }
+  function splitParagraphs(text) {
+    return text.split(/\r?\n[ \t]*\r?\n+/)
+               .map(p => p.replace(/\s+/g, ' ').trim())
+               .filter(p => p.length > 0);
+  }
+  function splitSentences(text) {
+    const out = [];
+    const re = /[^。！？.!?\n]+[。！？.!?]+/g;
+    let m, last = 0;
+    while ((m = re.exec(text)) !== null) {
+      out.push(m[0]);
+      last = m.index + m[0].length;
+    }
+    const tail = text.slice(last).trim();
+    if (tail) out.push(tail);
+    return out.filter(s => s.length > 0);
+  }
+  function sentenceDurations(paraText, paraSecs) {
+    const sents = splitSentences(paraText);
+    if (sents.length === 0) return { texts: [], secs: [] };
+    const counts = sents.map(s => Math.max(1, count(s).weighted));
+    const sum = counts.reduce((a, b) => a + b, 0);
+    const secs = counts.map(c => (c / sum) * paraSecs);
+    return { texts: sents, secs };
+  }
+  function parseCueDuration(text) {
+    const m = text.match(/[（(](\d+)\s*(?:秒|s|sec)\s*[)）]/i);
+    if (m) return Number(m[1]);
+    const em = text.match(/^([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u);
+    if (em && CUE_DEFAULTS[em[1]] !== undefined) return CUE_DEFAULTS[em[1]];
+    return 0;
+  }
+  function parseCueEmoji(text) {
+    const m = text.match(/^([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u);
+    return m ? m[1] : null;
+  }
+  function paraStats(text, speedVal) {
+    const paras = splitParagraphs(text);
+    // 跨语言加权混合：汉字按 speedVal（当前语言档位,汉字/分钟）计，英文按 speedVal*1.0 计（wpm）。
+    // 单档位的情况下，中文档位（200）和英文档位（130）数字本身代表了"每分钟多少"
+    // 的不同语义，所以公式保持 secs = weighted / speedVal * 60。
+    // 数字与档位的语义保持一致：中文"200 字/分钟" → 200 字 → 60s；英文"130 wpm" → 130 words → 60s。
+    const total = paras.reduce((acc, p) => acc + count(p).weighted, 0) || 1;
+    return paras.map((p, i) => {
+      const s = count(p);
+      const isCue = isCueLine(p);
+      const secs = isCue ? parseCueDuration(p) : (s.weighted / speedVal) * 60;
+      return {
+        idx: i, text: p, preview: previewOf(p),
+        cjk: s.cjk, en: s.en, weighted: s.weighted, secs,
+        ratio: s.weighted / total,
+        isCue,
+      };
+    });
+  }
+  function previewOf(s, n = 22) {
+    const t = s.replace(/\s+/g, ' ').trim();
+    return t.length > n ? t.slice(0, n) + '…' : t;
+  }
+
+  // ============= 时长格式化 =============
+  function formatDuration(seconds) {
+    if (!isFinite(seconds) || seconds < 0) seconds = 0;
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+  function parseDuration(minStr, secStr) {
+    const m = parseInt(minStr || '0', 10) || 0;
+    const s = parseInt(secStr || '0', 10) || 0;
+    return m * 60 + s;
+  }
+
+  // ============= 高亮 =============
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function escapeRe(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  function buildHighlight(text) {
+    if (!text) return '';
+    const lines = text.split('\n');
+    const processed = lines.map(rawLine => {
+      if (isCueLine(rawLine)) {
+        // 把 emoji 单独包成 .cue-emoji span，让它视觉放大但不撑高 line-box
+        const emojiMatch = rawLine.match(/^([\p{Emoji_Presentation}\p{Extended_Pictographic}])(.*)$/u);
+        const inner = emojiMatch
+          ? `<span class="cue-emoji">${escapeHtml(emojiMatch[1])}</span>${escapeHtml(emojiMatch[2]) || ''}`
+          : escapeHtml(rawLine);
+        return `<span class="cue">${inner || '&nbsp;'}</span>`;
+      }
+      return escapeHtml(rawLine);
+    });
+    let html = processed.join('\n');
+    const sorted = [...tics].filter(Boolean).sort((a, b) => b.length - a.length);
+    for (const word of sorted) {
+      const eWord = escapeRe(word);
+      let re;
+      if (word.length === 1) {
+        re = new RegExp(`(?<![\\u4e00-\\u9fa5])(${eWord})(?![\\u4e00-\\u9fa5])`, 'g');
+      } else {
+        re = new RegExp(`(${eWord})`, 'g');
+      }
+      html = html.replace(re, '<mark>$1</mark>');
+    }
+    return html.replace(/\n/g, '<br>');
+  }
+  function syncHighlight() {
+    hl.innerHTML = buildHighlight(editor.value);
+    hl.scrollTop = editor.scrollTop;
+    hl.scrollLeft = editor.scrollLeft;
+    updateCueSelection();
+  }
+
+  // 把 textarea 的 selection 范围映射到 highlight 层的 .cue span 上：
+  // 如果 selection 的某一端落在 cue 行内，给对应 span 加 .cue-selected（深一档底色），
+  // 让 cue 行内"被选中"通过底色深浅区分，避免浏览器默认蓝色 selection 在双层渲染下
+  // 出现的"偏左几个像素"观感。
+  function updateCueSelection() {
+    const selStart = editor.selectionStart;
+    const selEnd = editor.selectionEnd;
+    // 清除所有旧的 selected class
+    hl.querySelectorAll('.cue-selected').forEach(el => el.classList.remove('cue-selected'));
+    if (selStart === selEnd) return; // 没有选区
+    const value = editor.value;
+    const lines = value.split('\n');
+    let lineStart = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineEnd = lineStart + line.length;
+      // 选区和当前行有交集
+      if (selStart <= lineEnd && selEnd >= lineStart && isCueLine(line)) {
+        // highlight 内每个 .cue span 对应一行，按出现顺序取第 i 个
+        const cueEls = hl.querySelectorAll('.cue');
+        if (cueEls[i]) cueEls[i].classList.add('cue-selected');
+      }
+      lineStart = lineEnd + 1;
+    }
+  }
+  document.addEventListener('selectionchange', () => {
+    if (editor.contains(document.activeElement) || document.activeElement === editor) {
+      updateCueSelection();
+    }
+  });
+  editor.addEventListener('scroll', () => {
+    hl.scrollTop = editor.scrollTop;
+    hl.scrollLeft = editor.scrollLeft;
+  });
+
+  // ============= 口癖 =============
+  function countTics(text) {
+    const counts = {};
+    tics.forEach(w => counts[w] = 0);
+    if (!text) return counts;
+    const cleaned = stripCueLines(text);
+    for (const word of tics) {
+      if (!word) continue;
+      const eWord = escapeRe(word);
+      let re;
+      if (word.length === 1) {
+        re = new RegExp(`(?<![\\u4e00-\\u9fa5])${eWord}(?![\\u4e00-\\u9fa5])`, 'g');
+      } else {
+        re = new RegExp(eWord, 'g');
+      }
+      const m = cleaned.match(re);
+      counts[word] = m ? m.length : 0;
+    }
+    return counts;
+  }
+  function renderTicCounts(counts) {
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const total = entries.reduce((acc, [, v]) => acc + v, 0);
+    ticCounts.innerHTML = entries.map(([w, n]) =>
+      `<span class="tic-chip ${n === 0 ? 'zero' : ''}"><span>${escapeHtml(w)}</span><span class="count">${n}</span></span>`
+    ).join('');
+    ticTotal.textContent = total === 0
+      ? I18N[lang].ticClean
+      : I18N[lang].ticTotal(total);
+  }
+
+  // ============= 段落 =============
+  function renderParagraphs(stats) {
+    if (stats.length === 0) {
+      paraList.innerHTML = `<div class="text-xs px-2 py-3" style="color:var(--muted);">${I18N[lang].paraEmpty}</div>`;
+      paraSummary.textContent = '—';
+      return;
+    }
+    const d = I18N[lang];
+    paraSummary.textContent = d.paraSummary(stats.length, formatDuration(stats.reduce((a, p) => a + p.secs, 0)));
+    const totalSecs = stats.reduce((a, p) => a + p.secs, 0);
+    paraList.innerHTML = stats.map(p => {
+      let cls = 'para-row';
+      const meta = p.isCue ? d.paraMetaCue(formatDuration(p.secs)) : d.paraMetaText(p.weighted, formatDuration(p.secs));
+      if (p.isCue) {
+        cls += ' cue';
+      } else if (totalSecs > 0 && (p.ratio > 0.35 || p.secs > 60)) cls += ' over';
+      else if (totalSecs > 0 && (p.ratio > 0.25 || p.secs > 40)) cls += ' warn';
+      return `
+        <div class="${cls}" data-pidx="${p.idx}">
+          <span class="pidx">${p.isCue ? '·' : (p.idx + 1)}</span>
+          <span class="ptext">${escapeHtml(p.preview)}</span>
+          <span class="pmeta">${meta}</span>
+        </div>`;
+    }).join('');
+    paraList.querySelectorAll('.para-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const idx = Number(row.dataset.pidx);
+        focusParagraph(idx);
+      });
+    });
+  }
+  function focusParagraph(idx) {
+    const text = editor.value;
+    const parts = text.split(/\r?\n[ \t]*\r?\n+/);
+    let pos = 0;
+    for (let i = 0; i < idx && i < parts.length; i++) {
+      pos += parts[i].length + 2;
+    }
+    editor.focus();
+    editor.setSelectionRange(pos, pos);
+    const lineHeight = 16 * 1.85;
+    const targetLine = text.slice(0, pos).split('\n').length;
+    editor.scrollTop = Math.max(0, (targetLine - 3) * lineHeight);
+    hl.scrollTop = editor.scrollTop;
+  }
+
+  // ============= 主面板 =============
+  function setProgress(actual, target) {
+    if (target <= 0) {
+      progressFill.style.width = '0%';
+      progressFill.classList.remove('over', 'warn');
+      progressText.textContent = I18N[lang].progressPlaceholder;
+      progressText.style.color = 'var(--muted)';
+      return;
+    }
+    const pct = Math.min(100, (actual / target) * 100);
+    progressFill.style.width = pct + '%';
+    progressFill.classList.remove('over', 'warn');
+    if (actual > target) progressFill.classList.add('over');
+    else if (actual > target * 0.85) progressFill.classList.add('warn');
+    const diff = actual - target;
+    const d = I18N[lang];
+    if (Math.abs(diff) < 1) {
+      progressText.innerHTML = '<span class="delta-good">' + d.diffGood + '</span>';
+    } else if (diff > 0) {
+      progressText.innerHTML = d.diffOver(formatDuration(diff), pct.toFixed(0))
+        .replace(formatDuration(diff), `<span class="delta-bad">${formatDuration(diff)}</span>`)
+        .replace(`${pct.toFixed(0)}%`, `${pct.toFixed(0)}%`);
+    } else {
+      progressText.innerHTML = d.diffUnder(formatDuration(-diff), pct.toFixed(0))
+        .replace(formatDuration(-diff), `<span class="delta-warn">${formatDuration(-diff)}</span>`);
+    }
+  }
+
+  function render() {
+    const text = editor.value;
+    const s = count(text);
+    const stats = paraStats(text, speed);
+
+    cCjk.textContent      = s.cjk.toLocaleString();
+    cEn.textContent       = s.en.toLocaleString();
+    cAll.textContent      = s.all.toLocaleString();
+    cPara.textContent     = s.para.toLocaleString();
+    cSent.textContent     = s.sent.toLocaleString();
+    cWeighted.textContent = s.weighted.toLocaleString();
+
+    // 总时长 = 演讲稿字数时长 + 互动行固定秒数（paraStats 已经在每个 cue 段落塞入了 parseCueDuration）
+    const totalSec = stats.reduce((a, p) => a + p.secs, 0);
+    timeMain.textContent = formatDuration(totalSec);
+
+    const target = parseDuration(targetMin.value, targetSec.value);
+    setProgress(totalSec, target);
+
+    syncHighlight();
+    renderTicCounts(countTics(text));
+    renderParagraphs(stats);
+
+    if (s.weighted === 0 && stats.filter(p => p.isCue).length === 0) {
+      timeMain.textContent = '0:00';
+      progressFill.style.width = '0%';
+    }
+  }
+
+  // ============= 输入 / 保存 =============
+  editor.addEventListener('input', () => {
+    render();
+    scheduleSave();
+  });
+
+  // ============= 互动时长拖动调整 =============
+  // 交互：鼠标按下互动行的「（N秒）」括号位置 → 选中该括号（光标锚定）→ 鼠标移动显示 tooltip
+  //       预览新秒数（编辑器文字不变）→ 鼠标释放才把最终秒数写入编辑器。
+  //       这意味着按一下不移动鼠标、再松开，原文字不会被改动（"预览后确认"的体验）。
+  const durTooltip  = $('dur-tooltip');
+  const durArrow    = $('dur-arrow');
+  const durNum      = $('dur-num');
+  let durDrag = null;  // { startY, anchorSec, lastSec, lineStart, lineEnd, oldLine, oldMatch, durStart, durEnd }
+
+  function showDurTooltip(sec, x, y, deltaSec) {
+    if (deltaSec > 0)      durArrow.textContent = '↑';
+    else if (deltaSec < 0) durArrow.textContent = '↓';
+    else                    durArrow.textContent = '·';
+    durNum.textContent = `${sec} 秒`;
+    durTooltip.style.left = x + 'px';
+    durTooltip.style.top  = y + 'px';
+    durTooltip.classList.add('open');
+  }
+  function hideDurTooltip() {
+    durTooltip.classList.remove('open');
+  }
+
+  editor.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const value = editor.value;
+    const pos = getCaretPosFromMouse(e);
+    if (pos == null) return;
+    const lines = value.split('\n');
+    let lineStart = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineEnd = lineStart + line.length;
+      if (pos < lineStart || pos > lineEnd) {
+        lineStart = lineEnd + 1; continue;
+      }
+      if (!isCueLine(line)) break;
+      const m = line.match(/[（(](\d+)\s*(?:秒|s|sec)\s*[)）]/i);
+      if (!m) break;
+      const durStart = lineStart + m.index;
+      const durEnd = durStart + m[0].length;
+      if (pos < durStart || pos > durEnd) break;
+      // 命中：阻止浏览器默认的 drag-select 行为，否则 mouseup 时 selection 会被覆盖
+      e.preventDefault();
+      editor.setSelectionRange(durStart, durEnd);
+      durDrag = {
+        startY: e.clientY,
+        anchorSec: parseInt(m[1], 10),
+        lastSec: parseInt(m[1], 10),
+        lineIndex: i,
+        lineStart,
+        lineEnd,
+        oldLine: line,
+        oldMatch: m[0],
+        durStart,
+        durEnd,
+      };
+      document.querySelector('.editor-shell').classList.add('dragging-cue');
+      showDurTooltip(durDrag.anchorSec, e.clientX, e.clientY, 0);
+      return;
+    }
+  });
+
+  // 根据鼠标 clientY/clientX 反推 textarea 内的字符位置
+  function getCaretPosFromMouse(e) {
+    let caret = null;
+    if (document.caretPositionFromPoint) {
+      caret = document.caretPositionFromPoint(e.clientX, e.clientY);
+    } else if (document.caretRangeFromPoint) {
+      const r = document.caretRangeFromPoint(e.clientX, e.clientY);
+      if (r) caret = { offsetNode: r.startContainer, offset: r.startOffset };
+    }
+    if (!caret || !editor.contains(caret.offsetNode)) return null;
+    // 关键特例：textarea 自身没有可遍历的 text node，offsetNode 直接是 textarea，
+    // 它的 offset 已经是 textarea 全局字符偏移，直接返回。
+    if (caret.offsetNode === editor) return caret.offset;
+    // 兜底（contenteditable 场景）：累加 caret 节点之前的文本长度
+    let count = 0;
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node === caret.offsetNode) return count + caret.offset;
+      count += node.nodeValue.length;
+    }
+    return null;
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (!durDrag) return;
+    const deltaY = e.clientY - durDrag.startY;
+    const deltaSec = Math.round(-deltaY / 3);  // 上移 3px = +1 秒
+    const newSec = Math.max(0, Math.min(999, durDrag.anchorSec + deltaSec));
+    durDrag.lastSec = newSec;
+    showDurTooltip(newSec, e.clientX, e.clientY, deltaSec);
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!durDrag) return;
+    const finalSec = durDrag.lastSec;
+    const moved = finalSec !== durDrag.anchorSec;
+    hideDurTooltip();
+    document.querySelector('.editor-shell').classList.remove('dragging-cue');
+    if (moved) {
+      const newLine = durDrag.oldLine.replace(durDrag.oldMatch, `（${finalSec}秒）`);
+      const before = editor.value.slice(0, durDrag.lineStart);
+      const after = editor.value.slice(durDrag.lineEnd);
+      editor.value = before + newLine + after;
+      const idx = newLine.indexOf(`（${finalSec}秒）`);
+      const newDurStart = durDrag.lineStart + idx;
+      const newDurEnd = newDurStart + `（${finalSec}秒）`.length;
+      editor.setSelectionRange(newDurStart, newDurEnd);
+      editor.focus();
+      render();
+      scheduleSave();
+      showToast(`已调整为 ${finalSec} 秒`);
+    }
+    durDrag = null;
+  });
+
+  function scheduleSave() {
+    autoSave.textContent = I18N[lang].autosaveSaving;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, editor.value);
+        const time = new Date().toLocaleTimeString(lang === 'en' ? 'en-US' : 'zh-CN', { hour12: false });
+        autoSave.textContent = I18N[lang].autosaveSaved + ' · ' + time;
+      } catch (e) {
+        autoSave.textContent = I18N[lang].autosaveFail;
+      }
+    }, 500);
+  }
+
+  // ============= 启动恢复（仅暴露检测）=============
+  // 实际的恢复栏渲染在 init 末尾（applyLang 之后）。
+  let savedDraft = null;
+  try {
+    savedDraft = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {}
+
+  function persistSettings() {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        speed, targetMin: targetMin.value, targetSec: targetSec.value,
+      }));
+    } catch (e) {}
+  }
+
+  // ============= 导出 =============
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function timestamp() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}`;
+  }
+
+  function buildOutlineMarkdown() {
+    const d = I18N[lang];
+    const text = editor.value;
+    const stats = paraStats(text, speed);
+    const s = count(text);
+    const totalSec = stats.reduce((a, p) => a + p.secs, 0);
+    const cueParas = stats.filter(p => p.isCue);
+    const now = new Date().toLocaleString(lang === 'en' ? 'en-US' : 'zh-CN', { hour12: false });
+    const targetStr = (targetMin.value || targetSec.value)
+      ? (lang === 'en'
+          ? `${targetMin.value || 0}m ${targetSec.value || 0}s`
+          : `${targetMin.value || 0}分${targetSec.value || 0}秒`)
+      : d.mdTargetNone;
+
+    let md = '';
+    md += `# ${d.mdOutlineTitle}\n\n`;
+    md += `> ${d.mdGenerated}：${now}  \n`;
+    md += `> ${d.mdTotal}：${formatDuration(totalSec)}  \n`;
+    md += `> ${d.mdTarget}：${targetStr}  \n`;
+    md += `> ${d.mdSpeed(speed, d.mdSpeedUnit)}  \n`;
+    md += `> ${d.mdTotalParas(stats.length, cueParas.length)}  \n`;
+    md += `> ${d.mdChars(s.cjk, s.en, s.weighted)}\n\n`;
+    md += `---\n\n`;
+    md += `## ${d.mdOutlineSection}\n\n`;
+
+    if (stats.length === 0) {
+      md += `${d.mdEmpty}\n`;
+    } else {
+      stats.forEach((p, i) => {
+        if (p.isCue) {
+          md += `${i + 1}. ${d.mdCueItem(formatDuration(p.secs))} ${escapeMd(p.text)}\n`;
+        } else {
+          const warn = (p.ratio > 0.25 || p.secs > 40) ? ' ⚠️' : '';
+          md += `${d.mdParaItem(i + 1, warn, p.weighted, formatDuration(p.secs))}\n`;
+          md += `   > ${escapeMd(p.preview)}\n\n`;
+        }
+      });
+    }
+
+    md += `\n## ${d.mdCueSection}\n\n`;
+    if (cueParas.length === 0) {
+      md += `${d.mdCueEmpty}\n`;
+    } else {
+      cueParas.forEach((p, i) => {
+        md += `- ${escapeMd(p.text)}\n`;
+      });
+    }
+
+    md += `\n---\n\n${d.mdFooter}\n`;
+    return md;
+  }
+  function escapeMd(s) {
+    return s.replace(/([\\`*_{}\[\]()#+\-.!])/g, '\\$1');
+  }
+  function downloadFile(filename, content, mime = 'text/markdown;charset=utf-8') {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  let toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+  }
+
+  $('btn-export-outline').addEventListener('click', () => {
+    const md = buildOutlineMarkdown();
+    downloadFile(I18N[lang].mdFilename(), md);
+    showToast(I18N[lang].toastExported);
+  });
+
+  // ===================== 语速测试 =====================
+  // 测试文本由 applyLang 在 init 时根据 lang 写入 #test-text（避免重复声明 const）。
+
+  const T = { startTime: 0, tickHandle: null, running: false };
+  function tFmt(seconds) {
+    if (seconds < 60) return seconds.toFixed(1) + ' ' + (lang === 'en' ? 's' : '秒');
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    if (lang === 'en') return `${m}m ${s.toString().padStart(2, '0')}s`;
+    return `${m} 分 ${s.toString().padStart(2, '0')} 秒`;
+  }
+  function tReset() {
+    if (T.tickHandle) { clearInterval(T.tickHandle); T.tickHandle = null; }
+    T.startTime = 0; T.running = false;
+    $('test-clock').textContent = '0.0';
+    $('test-clock').classList.remove('running');
+    $('btn-test-start').disabled = false;
+    $('btn-test-stop').disabled = true;
+    $('test-result').classList.add('hidden');
+  }
+  function tStart() {
+    T.startTime = performance.now(); T.running = true;
+    $('test-clock').classList.add('running');
+    $('btn-test-start').disabled = true;
+    $('btn-test-stop').disabled = false;
+    $('test-result').classList.add('hidden');
+    T.tickHandle = setInterval(() => {
+      const sec = (performance.now() - T.startTime) / 1000;
+      $('test-clock').textContent = sec.toFixed(1);
+    }, 100);
+  }
+  function tStop() {
+    if (!T.running) return;
+    const elapsed = (performance.now() - T.startTime) / 1000;
+    if (T.tickHandle) { clearInterval(T.tickHandle); T.tickHandle = null; }
+    T.running = false;
+    $('test-clock').classList.remove('running');
+    $('btn-test-start').disabled = false;
+    $('btn-test-stop').disabled = true;
+
+    const c = count($('test-text').textContent);
+    const wpm = c.weighted / (elapsed / 60);
+    const d = I18N[lang];
+    // 根据当前语言档位推断推荐档
+    const presets = SPEED_PRESETS[lang];
+    let recoSpeed = presets[1].speed;
+    for (let i = presets.length - 1; i >= 0; i--) {
+      if (wpm >= presets[i].speed - 25) { recoSpeed = presets[i].speed; break; }
+    }
+    const recoCat = d.speedCat(wpm);
+    const recoName = presets.find(p => p.speed === recoSpeed).label;
+
+    $('result-chars').textContent = c.weighted.toLocaleString();
+    $('result-time').textContent  = tFmt(elapsed);
+    $('result-wpm').textContent   = `${Math.round(wpm)} ${d.wpmUnit}`;
+    $('result-reco').textContent  = d.speedCatReco(recoName, recoSpeed);
+    $('result-reco').dataset.speed = String(recoSpeed);
+    $('test-result').classList.remove('hidden');
+  }
+  function tOpen() {
+    $('speed-test-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    tReset();
+  }
+  function tClose() {
+    $('speed-test-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+    if (T.tickHandle) { clearInterval(T.tickHandle); T.tickHandle = null; }
+  }
+  function tApply() {
+    const newSpeed = Number($('result-reco').dataset.speed || SPEED_PRESETS[lang][1].speed);
+    speed = newSpeed;
+    renderSpeedChips();  // 重新渲染档位（含 aria-pressed）
+    render();
+    persistSettings();
+    tClose();
+    showToast(I18N[lang].toastSpeedApplied(speed, I18N[lang].speedUnit));
+  }
+  $('btn-speed-test').addEventListener('click', tOpen);
+  $('btn-close-test').addEventListener('click', tClose);
+  $('btn-test-start').addEventListener('click', tStart);
+  $('btn-test-stop').addEventListener('click', tStop);
+  $('btn-test-reset').addEventListener('click', tReset);
+  $('btn-apply-speed').addEventListener('click', tApply);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $('speed-test-overlay').classList.contains('open')) {
+      e.preventDefault(); tClose();
+    }
+  });
+  $('speed-test-overlay').addEventListener('click', (e) => {
+    if (e.target === $('speed-test-overlay')) tClose();
+  });
+
+  // ===================== 首次访问引导 =====================
+  const ONBOARD_KEY = 'speech-timer:onboarded:v1';
+  // 引导步骤（emoji + i18n key）
+  const ONBOARD_STEPS = [
+    { emoji: '🎙️', titleKey: 'onboardTitle', descKey: 'onboardDesc1' },
+    { emoji: '✍️',  titleKey: 'onboardStep2Title', descKey: 'onboardStep2Desc' },
+    { emoji: '⏱️', titleKey: 'onboardStep3Title', descKey: 'onboardStep3Desc' },
+    { emoji: '🎯',  titleKey: 'onboardStep4Title', descKey: 'onboardStep4Desc' },
+    { emoji: '✏️',  titleKey: 'onboardStep5Title', descKey: 'onboardStep5Desc' },
+    { emoji: '🚀',  titleKey: 'onboardStep6Title', descKey: 'onboardStep6Desc' },
+  ];
+  let onboardIdx = 0;
+
+  function renderOnboard() {
+    const d = I18N[lang];
+    const s = ONBOARD_STEPS[onboardIdx];
+    $('onboard-stage').innerHTML =
+      `<div class="onboard-emoji">${s.emoji}</div>` +
+      `<div class="onboard-title">${d[s.titleKey] || s.titleKey}</div>` +
+      `<div class="onboard-desc">${d[s.descKey] || s.descKey}</div>`;
+
+    $('onboard-dots').innerHTML = ONBOARD_STEPS
+      .map((_, i) => `<span class="dot ${i === onboardIdx ? 'active' : ''}"></span>`).join('');
+
+    $('btn-onboard-prev').disabled = onboardIdx === 0;
+    $('btn-onboard-prev').style.visibility = onboardIdx === 0 ? 'hidden' : '';
+    $('btn-onboard-prev').textContent = d.onboardPrev;
+    $('btn-onboard-next').textContent = onboardIdx === ONBOARD_STEPS.length - 1 ? d.onboardStart : d.onboardNext;
+    $('btn-onboard-skip').textContent = d.onboardSkip;
+  }
+  function onboardOpen() {
+    onboardIdx = 0;
+    renderOnboard();
+    $('onboard-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function onboardClose() {
+    $('onboard-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+    try { localStorage.setItem(ONBOARD_KEY, '1'); } catch (e) {}
+  }
+  function onboardNext() {
+    if (onboardIdx === ONBOARD_STEPS.length - 1) { onboardClose(); return; }
+    onboardIdx++; renderOnboard();
+  }
+  function onboardPrev() {
+    if (onboardIdx > 0) { onboardIdx--; renderOnboard(); }
+  }
+  $('btn-onboard-skip').addEventListener('click', onboardClose);
+  $('btn-onboard-next').addEventListener('click', onboardNext);
+  $('btn-onboard-prev').addEventListener('click', onboardPrev);
+  $('onboard-overlay').addEventListener('click', (e) => {
+    if (e.target === $('onboard-overlay')) onboardClose();
+  });
+
+  // ===================== 使用说明 modal =====================
+  function helpOpen() {
+    $('help-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function helpClose() {
+    $('help-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  $('btn-help').addEventListener('click', helpOpen);
+  // btn-close-help 在 help-card 内部由 renderHelp() 渲染；事件冒泡到 help-overlay 即可
+  $('help-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'btn-close-help' || e.target === $('help-overlay')) helpClose();
+  });
+  // Esc 关闭任意 overlay
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if ($('help-overlay').classList.contains('open')) { e.preventDefault(); helpClose(); }
+    else if ($('onboard-overlay').classList.contains('open')) { e.preventDefault(); onboardClose(); }
+  });
+
+  // 首次访问自动显示引导
+  try {
+    if (!localStorage.getItem(ONBOARD_KEY)) {
+      setTimeout(onboardOpen, 200);
+    }
+  } catch (e) { /* 忽略 */ }
+
+  // ===================== 演讲者视图 =====================
+  const P = {
+    el:          $('presenter'),
+    open:        false,
+    paragraphs:  [],
+    durations:   [],
+    isCueFlags:  [],
+    sentTexts:   [],
+    sentSecs:    [],
+    curIndex:    0,
+    curSentIndex:0,
+    startTime:   0,
+    pausedAt:    0,
+    pausedTotal: 0,
+    paused:      false,
+    tickHandle:  null,
+    autoAdvance: true,
+  };
+
+  $('btn-present').addEventListener('click', openPresenter);
+
+  function openPresenter() {
+    const stats = paraStats(editor.value, speed);
+    if (stats.length === 0) {
+      alert(I18N[lang].presenterEmptySpeech);
+      return;
+    }
+    P.paragraphs = stats.map(p => p.text);
+    P.isCueFlags = stats.map(p => p.isCue);
+    P.durations  = stats.map(p => p.secs);
+    P.sentTexts = stats.map(p => sentenceDurations(p.text, p.secs).texts);
+    P.sentSecs  = stats.map(p => sentenceDurations(p.text, p.secs).secs);
+    P.curIndex = 0; P.curSentIndex = 0;
+    P.paused = false; P.pausedTotal = 0;
+    P.autoAdvance = $('p-auto').checked;
+    P.startTime = performance.now();
+    P.el.classList.add('open'); P.open = true;
+    document.body.style.overflow = 'hidden';
+    if (document.activeElement && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
+    renderPresenter();
+    startTick();
+  }
+  function closePresenter() {
+    P.el.classList.remove('open'); P.open = false;
+    document.body.style.overflow = '';
+    stopTick();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  function startTick() { stopTick(); P.tickHandle = setInterval(tickPresenter, 200); }
+  function stopTick() { if (P.tickHandle) { clearInterval(P.tickHandle); P.tickHandle = null; } }
+  function elapsedSec() {
+    if (P.paused) return (P.pausedAt - P.startTime - P.pausedTotal) / 1000;
+    return (performance.now() - P.startTime - P.pausedTotal) / 1000;
+  }
+  function expectedAtIndex() {
+    let s = 0;
+    for (let i = 0; i < P.curIndex; i++) s += P.durations[i];
+    return s;
+  }
+  function tickPresenter() {
+    if (!P.open) return;
+    if (P.autoAdvance && !P.paused) {
+      const elapsed = elapsedSec();
+      const segStart = expectedAtIndex();
+      const durs = P.sentSecs[P.curIndex] || [];
+      let acc = 0;
+      for (let i = 0; i < P.curSentIndex; i++) acc += durs[i] || 0;
+      const curSentEnd = segStart + acc + (durs[P.curSentIndex] || 0);
+      if (elapsed >= curSentEnd) {
+        if (P.curSentIndex < durs.length - 1) advanceSent(P.curSentIndex + 1);
+        else if (P.curIndex < P.paragraphs.length - 1) advanceTo(P.curIndex + 1);
+        return;
+      }
+    }
+    renderPresenter();
+  }
+  function advanceTo(i) {
+    if (i < 0 || i >= P.paragraphs.length) return;
+    P.curIndex = i; P.curSentIndex = 0;
+    const newStart = performance.now() - expectedAtIndex() * 1000 - P.pausedTotal;
+    P.startTime = newStart;
+    renderPresenter();
+  }
+  function advanceSent(j) {
+    const durs = P.sentSecs[P.curIndex];
+    if (!durs || j < 0 || j >= durs.length) return;
+    P.curSentIndex = j;
+    const segStart = expectedAtIndex();
+    let sentStartInSeg = 0;
+    for (let i = 0; i < j; i++) sentStartInSeg += durs[i];
+    const newStart = performance.now() - (segStart + sentStartInSeg) * 1000 - P.pausedTotal;
+    P.startTime = newStart;
+    renderPresenter();
+  }
+  function nextSent() {
+    const durs = P.sentSecs[P.curIndex] || [];
+    if (P.curSentIndex < durs.length - 1) advanceSent(P.curSentIndex + 1);
+    else if (P.curIndex < P.paragraphs.length - 1) advanceTo(P.curIndex + 1);
+  }
+  function prevSent() {
+    if (P.curSentIndex > 0) advanceSent(P.curSentIndex - 1);
+    else if (P.curIndex > 0) {
+      const prevDurs = P.sentSecs[P.curIndex - 1] || [];
+      advanceTo(P.curIndex - 1);
+      if (prevDurs.length > 0) advanceSent(prevDurs.length - 1);
+    }
+  }
+  function nextPara() { if (P.curIndex < P.paragraphs.length - 1) advanceTo(P.curIndex + 1); }
+  function prevPara() { if (P.curIndex > 0) advanceTo(P.curIndex - 1); }
+  function togglePause() {
+    if (!P.paused) { P.paused = true; P.pausedAt = performance.now(); }
+    else { P.pausedTotal += performance.now() - P.pausedAt; P.paused = false; P.pausedAt = 0; }
+    renderPresenter();
+  }
+  function resetPresenter() {
+    P.curIndex = 0; P.startTime = performance.now();
+    P.pausedTotal = 0; P.paused = false; P.pausedAt = 0;
+    renderPresenter();
+  }
+  function parseCue(text) {
+    const m = text.match(/^([\p{Emoji_Presentation}\p{Extended_Pictographic}])\s*(.*)$/u);
+    if (!m) return null;
+    let label = m[2]; let durStr = '';
+    const dur = label.match(/[（(](\d+)\s*(?:秒|s|sec)\s*[)）]/i);
+    if (dur) {
+      durStr = dur[0];
+      label = label.replace(dur[0], '').replace(/[:：]\s*$/, '').trim();
+    } else {
+      label = label.replace(/[:：]\s*$/, '').trim();
+    }
+    return { emoji: m[1], label, durStr };
+  }
+  function renderPresenter() {
+    const d = I18N[lang];
+    const totalSec = P.durations.reduce((a, b) => a + b, 0);
+    const elapsed = Math.max(0, elapsedSec());
+    const segStart = expectedAtIndex();
+    const segDur = P.durations[P.curIndex];
+    const isCue = P.isCueFlags[P.curIndex];
+    const segElapsed = elapsed - segStart;
+    const segRemain = Math.max(0, segDur - segElapsed);
+    const sentTexts = P.sentTexts[P.curIndex] || [];
+    const sentSecs  = P.sentSecs[P.curIndex]  || [];
+
+    let stageLabel = d.presenterLabel(P.curIndex + 1, P.paragraphs.length);
+    if (!isCue && sentTexts.length > 0) {
+      stageLabel += d.presenterSentLabel(P.curSentIndex + 1, sentTexts.length);
+    } else if (isCue) {
+      stageLabel += d.presenterCueLabel;
+    }
+    $('p-stage').textContent = stageLabel;
+    $('p-elapsed').textContent = formatDuration(elapsed);
+    $('p-total').textContent = formatDuration(totalSec);
+    $('p-expected').textContent = d.presenterExpected(formatDuration(segStart + segDur));
+
+    const clock = $('p-clock');
+    clock.classList.remove('behind', 'over');
+    if (elapsed > segStart + segDur + 2) clock.classList.add('over');
+    else if (elapsed > segStart + segDur) clock.classList.add('behind');
+
+    const segRemainEl = $('p-seg-remain');
+    segRemainEl.textContent = formatDuration(segRemain);
+    segRemainEl.classList.remove('warn', 'danger');
+    if (segRemain < 3) segRemainEl.classList.add('danger');
+    else if (segRemain < 8) segRemainEl.classList.add('warn');
+
+    const cur = P.paragraphs[P.curIndex] || '';
+    const curEl = $('p-cur');
+    if (isCue) {
+      const parsed = parseCue(cur) || { emoji: '·', label: cur, durStr: '' };
+      const labelParts = parsed.label.split(/[:：]/);
+      const main = labelParts[0] || '';
+      const sub = labelParts.slice(1).join(':').trim();
+      curEl.classList.add('cue-mode'); curEl.classList.remove('empty');
+      curEl.innerHTML =
+        `<span class="cue-emoji">${escapeHtml(parsed.emoji)}</span>` +
+        `<span class="cue-label">${escapeHtml(main)}</span>` +
+        (parsed.durStr ? `<span class="cue-label" style="font-size:clamp(16px,1.6vw,22px);color:#71717A;margin-top:8px;">${escapeHtml(parsed.durStr)}</span>` : '') +
+        (sub ? `<div class="cue-label" style="margin-top:16px;font-size:clamp(18px,2.6vw,36px);">${escapeHtml(sub)}</div>` : '');
+    } else {
+      curEl.classList.remove('cue-mode');
+      curEl.classList.toggle('empty', !sentTexts.length);
+      curEl.textContent = sentTexts[P.curSentIndex] || cur || d.emptySent;
+    }
+
+    const sentNext = sentTexts[P.curSentIndex + 1];
+    const sentNextEl = $('p-sent-next');
+    if (!isCue && sentNext) {
+      const nextDur = sentSecs[P.curSentIndex + 1];
+      sentNextEl.style.display = '';
+      sentNextEl.innerHTML = `<span class="nlbl">${d.nextSentLabel(formatDuration(nextDur))}</span><span class="ntext">${escapeHtml(sentNext)}</span>`;
+    } else {
+      sentNextEl.style.display = 'none';
+    }
+
+    const nextIdx = P.curIndex + 1;
+    const nextEl = $('p-next');
+    if (nextIdx < P.paragraphs.length) {
+      const nextIsCue = P.isCueFlags[nextIdx];
+      if (nextIsCue) {
+        const parsed = parseCue(P.paragraphs[nextIdx]) || { emoji: '·', label: P.paragraphs[nextIdx], durStr: '' };
+        nextEl.classList.add('cue-preview');
+        nextEl.textContent = `${parsed.emoji} ${parsed.label}${parsed.durStr ? ' ' + parsed.durStr : ''}`;
+      } else {
+        nextEl.classList.remove('cue-preview');
+        nextEl.textContent = P.paragraphs[nextIdx];
+      }
+    } else {
+      nextEl.classList.remove('cue-preview');
+      nextEl.textContent = d.lastPara;
+    }
+
+    const pct = totalSec > 0 ? Math.min(100, (segStart / totalSec) * 100) : 0;
+    const fill = $('p-prog-fill');
+    fill.style.width = pct + '%';
+    fill.classList.toggle('over', elapsed > totalSec + 2);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (!P.open) return;
+    if (document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+    if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePause(); }
+    else if (e.key === 'ArrowDown'  || e.key === 'j' || e.key === 'J') { e.preventDefault(); nextSent(); }
+    else if (e.key === 'ArrowUp'    || e.key === 'k' || e.key === 'K') { e.preventDefault(); prevSent(); }
+    else if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === 'n' || e.key === 'N') { e.preventDefault(); nextPara(); }
+    else if (e.key === 'ArrowLeft'  || e.key === 'PageUp'   || e.key === 'p' || e.key === 'P') { e.preventDefault(); prevPara(); }
+    else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); resetPresenter(); }
+    else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closePresenter(); }
+  });
+  $('p-auto').addEventListener('change', (e) => { P.autoAdvance = e.target.checked; });
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) P.el.requestFullscreen?.().catch(() => {});
+    else document.exitFullscreen?.();
+  }
+
+  // ===================== i18n 应用 =====================
+  // 用 data-i18n-key 属性声明"这里应该填哪个 key"，启动和切语言时统一渲染。
+  // 复杂文案（modal/help）单独由 renderHelp() / renderOnboard() 处理。
+  function applyLang() {
+    const d = I18N[lang];
+    const map = {
+      'i18n-title': 'title',
+      'i18n-subtitle': 'subtitle',
+      'i18n-btn-help-title': 'btnHelpTitle',
+      'i18n-btn-export': 'btnExport',
+      'i18n-btn-present': 'btnPresent',
+      'i18n-cue-toolbar': 'cueToolbar',
+      'i18n-btn-sample': 'btnSample',
+      'i18n-btn-clear': 'btnClear',
+      'i18n-footer-status': 'footerStatus',
+      'i18n-footer': 'footerCopy',
+      'i18n-hero-label': 'heroLabel',
+      'i18n-btn-speed-test': 'btnSpeedTest',
+      'i18n-target-label': 'targetLabel',
+      'i18n-progress-placeholder': 'progressPlaceholder',
+      'i18n-para-label': 'paraLabel',
+      'i18n-tic-label': 'ticLabel',
+      'i18n-tic-edit': 'ticEdit',
+      'i18n-tic-input-ph': 'ticInputPh',
+      'i18n-tic-edit-hint': 'ticEditHint',
+      'i18n-chars-label': 'charsLabel',
+      'i18n-chars-expand': 'charsExpand',
+      'i18n-chars-cjk': 'charsCjk',
+      'i18n-chars-en': 'charsEn',
+      'i18n-chars-all': 'charsAll',
+      'i18n-chars-para': 'charsPara',
+      'i18n-chars-sent': 'charsSent',
+      'i18n-chars-weighted': 'charsWeighted',
+      'i18n-toast': 'toastCopied',
+      'i18n-restore-prefix': 'restorePrefix',
+      'i18n-restore-suffix': 'restoreSuffix',
+      'i18n-target-min-ph': 'targetMinPh',
+      'i18n-target-sec-ph': 'targetSecPh',
+      'i18n-target-clear': 'targetClear',
+      'i18n-autosave-status': 'autosaveReady',
+      'i18n-speed-test-title': 'speedTestTitle',
+      'i18n-speed-test-hint': 'speedTestHint',
+      'i18n-speed-test-start': 'speedTestStart',
+      'i18n-speed-test-stop': 'speedTestStop',
+      'i18n-speed-test-reset': 'speedTestReset',
+      'i18n-result-chars': 'speedTestResultChars',
+      'i18n-result-time': 'speedTestResultTime',
+      'i18n-result-wpm': 'speedTestResultWpm',
+      'i18n-result-reco': 'speedTestResultReco',
+      'i18n-speed-test-apply': 'speedTestApply',
+      'i18n-dur-hint': 'durHint',
+      'i18n-onboard-skip': 'onboardSkip',
+      'i18n-onboard-prev': 'onboardPrev',
+      'i18n-onboard-next': 'onboardNext',
+      'i18n-onboard-start': 'onboardStart',
+    };
+    for (const [id, key] of Object.entries(map)) {
+      const el = document.getElementById(id);
+      if (!el || !(key in d)) continue;
+      if (id === 'i18n-onboard-next' || id === 'i18n-onboard-start') {
+        // 字符串值，会被 renderOnboard 在 next 步骤覆盖
+      }
+      el.textContent = d[key];
+    }
+    // placeholder 文案按 data-ph 切换
+    document.querySelectorAll('[data-ph]').forEach(el => {
+      const k = el.dataset.ph;
+      if (d[k]) el.placeholder = d[k];
+    });
+    // editor 文本框 placeholder（多行）
+    if (d.editorPlaceholder) {
+      document.getElementById('editor').placeholder = d.editorPlaceholder;
+    }
+    // 速度档位按语言动态生成
+    renderSpeedChips();
+    // cue emoji 标签
+    document.querySelectorAll('[data-i18n-cue]').forEach(span => {
+      const k = span.dataset.i18nCue;
+      if (d.cueLabels[k]) span.textContent = d.cueLabels[k];
+    });
+    // 测速测试文本
+    document.getElementById('test-text').textContent = d.speedTestText;
+    // 语言切换按钮
+    document.getElementById('i18n-lang-label').textContent = d.langLabel;
+    document.getElementById('i18n-lang-toggle').textContent = d.langToggleTo;
+    // 恢复栏 placeholder
+    const restNum = document.getElementById('restore-count');
+    if (restNum && restNum.textContent) {
+      document.getElementById('restore-bar').innerHTML =
+        '· ' + d.restorePrefix + ' <b id="restore-count">' + restNum.textContent + '</b> ' + (lang==='en' ? 'chars ' : '字 ') + d.restoreSuffix + ' <button id="btn-restore" class="btn-link">' + d.restore + '</button> <button id="btn-discard" class="btn-link danger">' + d.discard + '</button>';
+    }
+    // 渲染 modal / onboard 内容
+    renderHelp();
+    renderOnboard();
+    renderPresenterStrings();
+  }
+
+  function renderPresenterStrings() {
+    const d = I18N[lang];
+    const el = (id, k) => { const e = document.getElementById(id); if (e) e.textContent = d[k]; };
+    el('p-elapsed-label', 'presenterElapsed');
+    el('p-seg-remain-label', 'presenterSegRemain');
+    el('p-sent-next-label', 'helpNextSent');
+    el('p-next-label', 'nextLabel');
+    el('p-auto-label', 'presenterAutoToggle');
+    const map = { pause:'presenterPause', nextSent:'presenterNextSent', prevSent:'presenterPrevSent',
+                  nextPara:'presenterNextPara', prevPara:'presenterPrevPara',
+                  reset:'presenterReset', fullscreen:'presenterFullscreen', exit:'presenterExit' };
+    document.querySelectorAll('#p-shortcuts [data-ps]').forEach(span => {
+      const k = map[span.dataset.ps];
+      if (k && d[k]) span.textContent = d[k];
+    });
+  }
+
+  function renderSpeedChips() {
+    const row = document.getElementById('speed-row');
+    if (!row) return;
+    row.innerHTML = SPEED_PRESETS[lang].map((p, i) =>
+      `<button class="speed-chip" data-speed="${p.speed}" ${p.speed === speed ? 'aria-pressed="true"' : ''}>${p.label} · ${p.speed}</button>`
+    ).join('');
+    document.querySelectorAll('[data-speed]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        speed = Number(btn.dataset.speed);
+        document.querySelectorAll('[data-speed]').forEach(b =>
+          b.setAttribute('aria-pressed', String(b === btn)));
+        render();
+        persistSettings();
+      });
+    });
+  }
+
+  // 渲染使用说明 modal
+  function renderHelp() {
+    const d = I18N[lang];
+    const card = document.getElementById('help-card');
+    if (!card) return;
+    card.innerHTML = `
+      <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--line);">
+        <h3 style="font-size:16px;font-weight:600;letter-spacing:-0.01em;">${d.btnHelpTitle}</h3>
+        <button class="modal-close" id="btn-close-help" aria-label="${d.btnHelpTitle}" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);padding:4px 12px;border-radius:6px;">×</button>
+      </div>
+      <div class="help-section">
+        <h4>${d.helpPurpose}</h4>
+        <p style="color:var(--ink-2);font-size:14px;line-height:1.7;">${d.helpPurposeDesc}</p>
+      </div>
+      <div class="help-section">
+        <h4>${d.helpFlow}</h4>
+        ${[1,2,3,4,5,6,7].map(i => `
+          <div class="help-row">
+            <span class="hr-label">${d['helpFlow' + i + 'Label']}</span>
+            <span class="hr-desc">${d['helpFlow' + i + 'Desc']}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="help-section">
+        <h4>${d.helpShortcuts}</h4>
+        <div class="help-row"><span class="hr-label">${d.helpPause}</span><span class="hr-desc">${d.helpPauseDesc || '<span class="kbd">Space</span>'}</span></div>
+        <div class="help-row"><span class="hr-label">${d.helpNextSent}</span><span class="hr-desc">${d.helpNextSentDesc}</span></div>
+        <div class="help-row"><span class="hr-label">${d.helpPrevSent}</span><span class="hr-desc">${d.helpPrevSentDesc}</span></div>
+        <div class="help-row"><span class="hr-label">${d.helpNextPara}</span><span class="hr-desc">${d.helpNextParaDesc}</span></div>
+        <div class="help-row"><span class="hr-label">${d.helpPrevPara}</span><span class="hr-desc">${d.helpPrevParaDesc}</span></div>
+        <div class="help-row"><span class="hr-label">${d.helpReset}</span><span class="hr-desc">${d.helpResetDesc}</span></div>
+        <div class="help-row"><span class="hr-label">${d.helpFullscreen}</span><span class="hr-desc">${d.helpFullscreenDesc}</span></div>
+        <div class="help-row"><span class="hr-label">${d.helpExit}</span><span class="hr-desc">${d.helpExitDesc}</span></div>
+        <div class="help-tip">${d.helpAutoAdvanceTip}</div>
+      </div>
+      <div class="help-section">
+        <h4>${d.helpCueFormat}</h4>
+        <p style="color:var(--ink-2);font-size:14px;line-height:1.7;margin-bottom:8px;">${d.helpCueFormatDesc}</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink);background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--line);margin-bottom:6px;">${d.helpCueExample}</p>
+        <p style="color:var(--muted);font-size:13px;">${d.helpCueFormatHint}</p>
+      </div>
+      <div class="help-section">
+        <h4>${d.helpStorage}</h4>
+        <p style="color:var(--ink-2);font-size:14px;line-height:1.7;">${d.helpStorageDesc}</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:6px;">${d.helpStorageHint}</p>
+      </div>
+    `;
+    // close 按钮的事件已通过 #help-overlay 的冒泡委托处理（见 init）
+  }
+
+  // 重写 onboard step 渲染（用 i18n）— 实际 ONBOARD_STEPS 声明在 line 2043，此处不再重复。
+
+  // ===================== 初始化 =====================
+  // 从 localStorage 读取语言偏好
+  try {
+    const savedLang = localStorage.getItem(LANG_KEY);
+    if (savedLang === 'zh' || savedLang === 'en') lang = savedLang;
+  } catch (e) {}
+
+  // 默认语速按当前语言取「正常」档
+  speed = SPEED_PRESETS[lang][1].speed;
+
+  // 恢复设置（speed、target、tics）
+  try {
+    const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    if (settings.speed) speed = settings.speed;
+    if (settings.targetMin) targetMin.value = settings.targetMin;
+    if (settings.targetSec) targetSec.value = settings.targetSec;
+    const savedTics = JSON.parse(localStorage.getItem(TIC_KEY) || 'null');
+    // 优先用用户保存的 tics；如果没有保存，才用当前语言的默认值
+    if (Array.isArray(savedTics) && savedTics.length) tics = savedTics;
+    else tics = [...(lang === 'en' ? DEFAULT_TICS_EN : DEFAULT_TICS)];
+    ticInput.value = tics.join('\n');
+  } catch (e) {}
+
+  applyLang();  // 这一步会 renderSpeedChips()、renderHelp()、renderOnboard()，必须放在 speed 设置后
+
+  // 语言切换按钮：保留用户保存的 tics；如果从未保存过才换语言默认值
+  document.getElementById('btn-lang').addEventListener('click', () => {
+    const oldLang = lang;
+    lang = lang === 'zh' ? 'en' : 'zh';
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+    // 仅在用户从未保存过 tics（localStorage 没有 TIC_KEY）时换语言默认值；
+    // 否则保留用户原有 tics（按它本身的内容跨语言计数）。
+    const hadSavedTics = localStorage.getItem(TIC_KEY) !== null;
+    if (!hadSavedTics) {
+      tics = [...(lang === 'en' ? DEFAULT_TICS_EN : DEFAULT_TICS)];
+      ticInput.value = tics.join('\n');
+    }
+    applyLang();
+    render();
+    // 恢复栏文案也要重新渲染
+    renderRestoreBar();
+  });
+
+  function renderRestoreBar() {
+    const bar = document.getElementById('restore-bar');
+    if (!bar || bar.classList.contains('hidden')) return;
+    const d = I18N[lang];
+    const n = document.getElementById('restore-count').textContent;
+    bar.innerHTML = '· ' + d.restorePrefix + ' <b id="restore-count">' + n + '</b> ' + (lang === 'en' ? 'chars ' : '字 ') + d.restoreSuffix + ' <button id="btn-restore" class="btn-link">' + d.restore + '</button> <button id="btn-discard" class="btn-link danger">' + d.discard + '</button>';
+    $('btn-restore').addEventListener('click', () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        editor.value = saved;
+        bar.classList.add('hidden');
+        render(); scheduleSave();
+        editor.focus();
+      }
+    });
+    $('btn-discard').addEventListener('click', () => {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      bar.classList.add('hidden');
+    });
+  }
+
+  // 启动恢复 draft（必须在 applyLang 之后，因为 restore-bar 文案依赖 i18n）
+  if (savedDraft && savedDraft.trim().length > 0) {
+    const restoreBar = $('restore-bar');
+    renderRestoreBarInit(restoreBar, savedDraft);
+  }
+
+  function renderRestoreBarInit(bar, saved) {
+    const restoreCount = $('restore-count');
+    restoreCount.textContent = count(saved).weighted.toLocaleString();
+    bar.classList.remove('hidden');
+    renderRestoreBar();  // 重新填充 i18n 文案
+  }
+
+  // ============= 目标时长 =============
+  [targetMin, targetSec].forEach(el => el.addEventListener('input', () => {
+    render();
+    persistSettings();
+  }));
+  $('btn-clear-target').addEventListener('click', () => {
+    targetMin.value = '';
+    targetSec.value = '';
+    render();
+    persistSettings();
+  });
+
+  // ============= 口癖编辑 =============
+  $('btn-toggle-tic').addEventListener('click', () => {
+    $('tic-edit').classList.toggle('hidden');
+  });
+  ticInput.addEventListener('blur', () => {
+    const parts = ticInput.value
+      .split(/[\n,，;；\s]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    tics = [...new Set(parts)];
+    try { localStorage.setItem(TIC_KEY, JSON.stringify(tics)); } catch (e) {}
+    render();
+  });
+
+  // ============= 互动行插入 =============
+  document.querySelectorAll('[data-cue]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const emoji = btn.dataset.cue;
+      const label = I18N[lang].cueLabels[emoji] || '互动';
+      insertCue(emoji, label);
+    });
+  });
+
+  function insertCue(emoji, label) {
+    const ed = editor;
+    const start = ed.selectionStart;
+    const end = ed.selectionEnd;
+    const before = ed.value.slice(0, start);
+    const needsLeading = before.length > 0 && !before.endsWith('\n');
+    const trailing = ed.value.slice(start, end);
+    const dur = CUE_DEFAULTS[emoji] || 10;
+    const secWord = lang === 'en' ? `${dur}s` : `${dur}秒`;
+    const head = (needsLeading ? '\n' : '') + `${emoji} ${label}（${secWord}）：`;
+    const body = trailing || '';
+    const tail = '\n';
+    ed.value = before + head + body + tail + ed.value.slice(end);
+    const cursorPos = before.length + head.length + body.length;
+    ed.focus();
+    ed.setSelectionRange(cursorPos, cursorPos);
+    render();
+    scheduleSave();
+  }
+
+  // ============= 清空 / 示例 =============
+  $('btn-clear').addEventListener('click', () => {
+    if (!editor.value || confirm(I18N[lang].confirmClear)) {
+      editor.value = '';
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      autoSave.textContent = I18N[lang].autosaveCleared;
+      render();
+      editor.focus();
+    }
+  });
+  $('btn-sample').addEventListener('click', () => {
+    editor.value = I18N[lang].sample;
+    render();
+    scheduleSave();
+  });
+
+  render();
+  editor.focus();
+})();
+</script>
+</body>
+</html>
