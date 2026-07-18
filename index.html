@@ -392,6 +392,39 @@
   .modal-close:hover { background: var(--hover); color: var(--ink); }
   .modal-body { padding: 24px; }
   .modal-body .hint { color: var(--muted); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+
+  /* === 解锁授权 modal (POC 软付费墙) === */
+  .unlock-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.55); z-index: 9999;
+    align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .unlock-overlay.open { display: flex; }
+  .unlock-card {
+    background: var(--panel);
+    border-radius: 12px; width: 100%; max-width: 460px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    animation: unlockPop .18s ease-out;
+  }
+  @keyframes unlockPop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .unlock-card .modal-head h3 { color: var(--accent); }
+  .unlock-card .modal-body { padding: 20px 24px 24px; }
+  .unlock-card .unlock-desc { margin: 0 0 14px; line-height: 1.6; color: var(--ink); font-size: 14px; }
+  .unlock-card .contact-line { font-weight: 500; }
+  .unlock-card .contact-line a { color: var(--accent-strong); text-decoration: underline; }
+  .unlock-card .unlock-hint { margin-top: 18px; margin-bottom: 10px; font-size: 13px; opacity: 0.78; }
+  .unlock-card input.unlock-input {
+    flex: 1; padding: 9px 12px;
+    border: 1px solid var(--line); border-radius: 6px;
+    font: inherit; outline: none;
+    background: var(--bg); color: var(--ink);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .unlock-card input.unlock-input:focus { border-color: var(--accent); }
+  .unlock-actions { display: flex; gap: 8px; align-items: center; }
+  .unlock-actions .btn-primary { padding: 9px 18px; }
+  .btn[disabled], .btn:disabled { cursor: not-allowed !important; opacity: 0.55; }
   .test-text {
     font-size: 17px; line-height: 1.85; padding: 20px;
     background: var(--bg); border-radius: 10px; border: 1px solid var(--line);
@@ -872,6 +905,25 @@
   </div>
 </div>
 
+<!-- ===================== 解锁授权 modal (POC 软付费墙) ===================== -->
+<div class="unlock-overlay" id="unlock-overlay">
+  <div class="unlock-card">
+    <div class="modal-head">
+      <h3>🔒 <span id="i18n-unlock-title">联系作者获取授权</span></h3>
+      <button class="modal-close" id="btn-unlock-close" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="unlock-desc" id="i18n-unlock-desc">您已使用本工具 5 分钟。导出大纲、保存完整稿等功能需要授权码才能使用。</p>
+      <p style="margin:0;"><span class="contact-line" id="i18n-unlock-please">请联系作者:</span> <a class="contact-line" href="mailto:snowbits@gmail.com">snowbits@gmail.com</a></p>
+      <p class="unlock-hint" id="i18n-unlock-hint">如果您已获得授权码,请在下方输入后点击「应用」。</p>
+      <div class="unlock-actions">
+        <input id="unlock-input" class="unlock-input" type="text" placeholder="ST2026" maxlength="20" autocomplete="off" />
+        <button class="btn btn-primary" id="btn-unlock-apply"><span id="i18n-unlock-apply">应用</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== 首次访问引导 ===================== -->
 <div class="onboard-overlay" id="onboard-overlay">
   <div class="onboard-card">
@@ -985,6 +1037,10 @@
   const SETTINGS_KEY = 'speech-timer:settings:v1';
   const TIC_KEY      = 'speech-timer:tics:v1';
   const LANG_KEY     = 'speech-timer:lang:v1';
+  const UNLOCK_KEY   = 'speech-timer:unlocked:v1';   // POC 软付费墙
+  const FIRSTUSE_KEY = 'speech-timer:first-use:v1';  // 首次访问时间戳
+  const TRIAL_MS     = 5 * 60 * 1000;                // 5 分钟试用
+  const UNLOCK_CODE  = 'ST2026';                     // POC 授权码
   const DEFAULT_TICS = ['嗯','啊','呃','哦','那个','这个','然后','就是说','其实','对吧','然后呢','我觉得吧','反正','基本上','就是说吧'];
   const DEFAULT_TICS_EN = ['um','uh','er','ah','like','you know','so','basically','I mean','kind of','sort of','right?','I guess','well','okay'];
 
@@ -1029,6 +1085,15 @@
       footerStatus: '中英文混排 · 段落空行分隔 · 行首 emoji 视为互动指令',
       heroLabel: '预估时长',
       btnSpeedTest: '语速测试',
+      unlockTitle: '联系作者获取授权',
+      unlockDesc: '您已使用本工具 5 分钟。导出大纲、保存完整稿等功能需要授权码才能使用。',
+      unlockPlease: '请联系作者:',
+      unlockHint: '如果您已获得授权码,请在下方输入后点击「应用」。',
+      unlockApply: '应用',
+      unlockInvalid: '授权码无效,请检查后重试',
+      unlockSuccess: '授权成功!导出功能已解锁',
+      unlockRequired: '需要授权才能导出',
+      unlockInputPh: '授权码',
       speedChipLabel: (n, name) => `${name} · ${n}`,
       speedTestHint: '点「开始」后大声朗读下面这段文字（建议用平时讲话的速度），读完后点「完成」。系统会算出你的实测语速并推荐档位。',
       speedTestTitle: '语速测试',
@@ -1222,6 +1287,15 @@
       footerStatus: 'Mixed Chinese/English · Empty line = new paragraph · Line-leading emoji = interaction marker',
       heroLabel: 'Estimated Duration',
       btnSpeedTest: 'Speed Test',
+      unlockTitle: 'Contact Author for License',
+      unlockDesc: "You've been using this tool for 5 minutes. Exporting the outline or saving full transcripts requires a license key.",
+      unlockPlease: 'Please contact the author:',
+      unlockHint: 'If you already have a license key, enter it below and click Apply.',
+      unlockApply: 'Apply',
+      unlockInvalid: 'Invalid license key, please check and try again',
+      unlockSuccess: 'License applied! Export unlocked',
+      unlockRequired: 'License required to export',
+      unlockInputPh: 'License Key',
       speedChipLabel: (n, name) => `${name} · ${n}`,
       speedTestHint: 'Click Start and read the passage aloud at your normal pace, then click Done. We will compute your actual speed and recommend a preset.',
       speedTestTitle: 'Speed Test',
@@ -1939,6 +2013,10 @@ Thank you.`,
   }
 
   $('btn-export-outline').addEventListener('click', () => {
+    if (!isUnlocked()) {
+      showUnlockPrompt();
+      return;
+    }
     const md = buildOutlineMarkdown();
     downloadFile(I18N[lang].mdFilename(), md);
     showToast(I18N[lang].toastExported);
@@ -2566,6 +2644,73 @@ Thank you.`,
   } catch (e) {}
 
   applyLang();  // 这一步会 renderSpeedChips()、renderHelp()、renderOnboard()，必须放在 speed 设置后
+
+  // ===================== POC 软付费墙 =====================
+  // 5 分钟后弹 modal；用户可关闭（不像硬阻断那么激进）；
+  // 关闭后导出按钮被灰，必须用授权码解锁，授权码持久化在 localStorage。
+  function isUnlocked() {
+    try { return localStorage.getItem(UNLOCK_KEY) === '1'; } catch (e) { return false; }
+  }
+  function markUnlocked() {
+    try { localStorage.setItem(UNLOCK_KEY, '1'); } catch (e) {}
+  }
+  function getFirstUseTs() {
+    try { return parseInt(localStorage.getItem(FIRSTUSE_KEY) || '0', 10); } catch (e) { return 0; }
+  }
+  function markFirstUse() {
+    if (!getFirstUseTs()) {
+      try { localStorage.setItem(FIRSTUSE_KEY, String(Date.now())); } catch (e) {}
+    }
+  }
+  function isTrialExpired() {
+    const t = getFirstUseTs();
+    return t > 0 && (Date.now() - t) >= TRIAL_MS;
+  }
+  function showUnlockPrompt() { $('unlock-overlay').classList.add('open'); }
+  function hideUnlockPrompt() { $('unlock-overlay').classList.remove('open'); }
+  function gateExportBtn() {
+    const btn = $('btn-export-outline');
+    if (isUnlocked()) {
+      btn.disabled = false;
+      btn.removeAttribute('title');
+    } else {
+      btn.disabled = true;
+      btn.setAttribute('title', I18N[lang].unlockRequired);
+    }
+  }
+
+  // 先标记首次使用，再决定是否起 5 分钟定时器
+  markFirstUse();
+  gateExportBtn();
+
+  // 试用未过期 + 未解锁 → 5 分钟后弹
+  if (!isUnlocked() && !isTrialExpired()) {
+    setTimeout(() => {
+      if (!isUnlocked() && isTrialExpired()) showUnlockPrompt();
+    }, TRIAL_MS);
+  } else if (!isUnlocked() && isTrialExpired()) {
+    // 已经过期（返回的用户），下次进站立即弹
+    showUnlockPrompt();
+  }
+
+  // modal 关闭（软关闭，按钮可点）
+  $('btn-unlock-close').addEventListener('click', hideUnlockPrompt);
+
+  // 应用授权码
+  $('btn-unlock-apply').addEventListener('click', () => {
+    const code = $('unlock-input').value;
+    if ((code || '').trim().toUpperCase() === UNLOCK_CODE) {
+      markUnlocked();
+      hideUnlockPrompt();
+      gateExportBtn();
+      showToast(I18N[lang].unlockSuccess);
+    } else {
+      showToast(I18N[lang].unlockInvalid);
+    }
+  });
+  $('unlock-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('btn-unlock-apply').click();
+  });
 
   // 语言切换按钮：保留用户保存的 tics；如果从未保存过才换语言默认值
   document.getElementById('btn-lang').addEventListener('click', () => {
