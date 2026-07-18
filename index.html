@@ -209,6 +209,17 @@
     border-top-left-radius: 0;
     border-top-right-radius: 0;
   }
+
+  /* 草稿操作 toolbar(独立的迷你行,在 cue-toolbar 和 editor 之间) */
+  .draft-toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-top: none;
+    border-bottom: 1px solid var(--line);
+    justify-content: flex-end;
+  }
   .editor-shell {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -732,7 +743,9 @@
         <button class="btn btn-sm" data-cue="⏸️">⏸️ <span data-i18n-cue="⏸️">停顿</span></button>
         <button class="btn btn-sm" data-cue="❓">❓ <span data-i18n-cue="❓">提问</span></button>
         <button class="btn btn-sm" data-cue="💡">💡 <span data-i18n-cue="💡">引述</span></button>
-        <span style="flex:1"></span>
+      </div>
+      <!-- 草稿操作 toolbar -->
+      <div class="draft-toolbar">
         <button id="btn-sample" class="btn btn-sm"><span id="i18n-btn-sample">载入示例</span></button>
         <button id="btn-clear" class="btn btn-sm btn-danger"><span id="i18n-btn-clear">清空</span></button>
       </div>
