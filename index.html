@@ -424,7 +424,7 @@
   .unlock-card input.unlock-input:focus { border-color: var(--accent); }
   .unlock-actions { display: flex; gap: 8px; align-items: center; }
   .unlock-actions .btn-primary { padding: 9px 18px; }
-  .btn[disabled], .btn:disabled { cursor: not-allowed !important; opacity: 0.55; }
+  .btn.gated { cursor: not-allowed !important; opacity: 0.55; }
   .test-text {
     font-size: 17px; line-height: 1.85; padding: 20px;
     background: var(--bg); border-radius: 10px; border: 1px solid var(--line);
@@ -2671,10 +2671,10 @@ Thank you.`,
   function gateExportBtn() {
     const btn = $('btn-export-outline');
     if (isUnlocked()) {
-      btn.disabled = false;
+      btn.classList.remove('gated');
       btn.removeAttribute('title');
     } else {
-      btn.disabled = true;
+      btn.classList.add('gated');
       btn.setAttribute('title', I18N[lang].unlockRequired);
     }
   }
